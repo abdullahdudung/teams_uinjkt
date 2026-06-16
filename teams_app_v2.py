@@ -44,11 +44,10 @@ def load_and_preprocess_data():
     df['Role'] = df['Role'].replace({'tendik': 'Tendik'})
     
     # 3. ANONIMISASI DATA (Menjaga Kerahasiaan Privasi)
-    # Menghapus kolom yang berpotensi mengandung identitas pribadi
     kolom_privasi = ['Username', 'Email', 'Name', 'Display Name', 'User Principal Name']
     df = df.drop(columns=[col for col in kolom_privasi if col in df.columns], errors='ignore')
     
-    # Membuat ID Pengguna Anonim (misal: User_0001, User_0002)
+    # Membuat ID Pengguna Anonim (misal: User_0001)
     df.insert(0, 'User ID', ['User_' + str(i).zfill(4) for i in range(1, len(df) + 1)])
     
     # 4. Konversi Detik ke Menit & Feature Engineering
@@ -63,6 +62,7 @@ def load_and_preprocess_data():
     )
     
     # 5. Membuat Label Target berdasarkan Meeting Count
+    # Kunci Jawaban Prediksi: Rendah (<=5 rapat), Sedang (6-15 rapat), Tinggi (>15 rapat)
     def kategori_aktivitas(x):
         if x <= 5: return "Rendah"
         elif x <= 15: return "Sedang"
@@ -86,12 +86,8 @@ def train_models(df):
     ]
     X = df[fitur]
     
-    # Split Data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.20, random_state=42, stratify=y
-    )
-    
-    # Scaling
+    # Split Data & Feature Scaling
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20, random_state=42, stratify=y)
     scaler = StandardScaler()
     X_train_scaled = scaler.fit_transform(X_train)
     X_test_scaled = scaler.transform(X_test)
@@ -106,7 +102,7 @@ def train_models(df):
     knn = KNeighborsClassifier(n_neighbors=5, metric='euclidean')
     knn.fit(X_train_scaled, y_train)
     
-    # Evaluasi Akurasi
+    # Evaluasi
     acc_dt = accuracy_score(y_test, dt.predict(X_test_scaled))
     acc_rf = accuracy_score(y_test, rf.predict(X_test_scaled))
     acc_knn = accuracy_score(y_test, knn.predict(X_test_scaled))
@@ -147,7 +143,7 @@ else:
         "📝 Beranda & Ringkasan", 
         "📈 Exploratory Data Analysis (EDA)", 
         "🤖 Evaluasi Model", 
-        "🚀 Simulasi Prediksi (7 Hari)"
+        "🚀 Simulasi Prediksi (1 Bulan)"
     ])
     
     # ----------------------------------------
@@ -176,14 +172,8 @@ else:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### 📋 Preview Dataset Utama (Telah Dianonimkan)")
         
-        # Kolom yang ditampilkan sudah bersih dari identitas
         kolom_tampil = ['User ID', 'Role', 'Meeting Count', 'Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)', 'Total_Duration (Menit)', 'Activity_Level']
-        
-        st.dataframe(
-            df[kolom_tampil].head(15), 
-            use_container_width=True,
-            hide_index=True
-        )
+        st.dataframe(df[kolom_tampil].head(15), use_container_width=True, hide_index=True)
         st.caption("Catatan: Identitas asli pengguna telah dihapus. Data dikonversi ke satuan Menit.")
         
     # ----------------------------------------
@@ -197,16 +187,14 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # 1. FILTERING DATA (Dosen / Tendik)
+        # FILTERING DATA
         st.markdown("### 🔍 Filter Data Visualisasi")
         col_filt1, col_filt2 = st.columns([1, 2])
         with col_filt1:
             pilihan_role = st.selectbox("Pilih Peran (*Role*) untuk dianalisis:", ["Semua Data", "Dosen", "Tendik"])
-        
         with col_filt2:
             st.info(f"Visualisasi di bawah ini menampilkan data untuk kategori: **{pilihan_role}**")
             
-        # Mengaplikasikan Filter
         if pilihan_role == "Semua Data":
             df_eda = df.copy()
         else:
@@ -214,19 +202,17 @@ else:
             
         st.markdown("---")
         
-        # 2. KOMPOSISI DAN KELAS
+        # KOMPOSISI DAN KELAS
         col_eda1, col_eda2 = st.columns(2)
         with col_eda1:
             if pilihan_role == "Semua Data":
                 role_counts = df_eda['Role'].value_counts().reset_index()
                 role_counts.columns = ['Role', 'Jumlah']
                 fig_pie = px.pie(role_counts, values='Jumlah', names='Role', hole=0.5, 
-                                 color_discrete_sequence=CUSTOM_COLORS,
-                                 title="Komposisi Pengguna")
+                                 color_discrete_sequence=CUSTOM_COLORS, title="Komposisi Pengguna")
                 fig_pie.update_traces(textposition='inside', textinfo='percent+label')
                 st.plotly_chart(fig_pie, use_container_width=True)
             else:
-                # Jika filter spesifik, pie chart tidak relevan, tampilkan metrik saja
                 st.metric(f"Total Pengguna ({pilihan_role})", f"{len(df_eda)} Orang")
                 st.markdown(f"*(Visualisasi proporsi peran disembunyikan karena Anda sedang memfilter spesifik hanya pada **{pilihan_role}**)*")
                 
@@ -245,11 +231,10 @@ else:
 
         st.markdown("---")
         
-        # 3. BOXPLOT DISTRIBUSI DURASI (Visualisasi Rinci Baru)
+        # BOXPLOT DISTRIBUSI DURASI
         st.markdown("### 📦 Distribusi Durasi Penggunaan (Deteksi Outlier)")
-        st.markdown("Grafik *Boxplot* ini sangat berguna untuk melihat nilai tengah (median) serta mengidentifikasi pengguna ekstrim (*outliers*) yang menggunakan fitur jauh melebihi rata-rata normal.")
+        st.markdown("Grafik *Boxplot* ini sangat berguna untuk melihat nilai tengah (median) serta mengidentifikasi pengguna ekstrim (*outliers*).")
         
-        # Format data panjang (melt) untuk boxplot gabungan
         df_melt = df_eda.melt(id_vars=['User ID', 'Activity_Level'], 
                               value_vars=['Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)'],
                               var_name='Jenis Fitur', value_name='Durasi (Menit)')
@@ -261,7 +246,7 @@ else:
 
         st.markdown("---")
         
-        # 4. SCATTER PLOT 3D
+        # SCATTER PLOT 3D
         st.markdown("### 🌐 Korelasi Multivariat (Audio vs Video vs Screen Share)")
         fig_scatter_3d = px.scatter_3d(
             df_eda, x='Audio Duration (Menit)', y='Video Duration (Menit)', z='Screen Share (Menit)',
@@ -272,7 +257,6 @@ else:
         )
         fig_scatter_3d.update_layout(margin=dict(l=0, r=0, b=0, t=0), height=550)
         st.plotly_chart(fig_scatter_3d, use_container_width=True)
-        st.markdown("**📌 Panduan:** Anda dapat memutar grafik 3D di atas menggunakan mouse untuk melihat bagaimana sebaran antara Audio, Video, dan Screen Share membentuk klaster/pengelompokan aktivitas yang khas.")
         
     # ----------------------------------------
     # TAB 3: EVALUASI MODEL
@@ -302,7 +286,6 @@ else:
             st.markdown("### 📋 Catatan Teknis Peneliti")
             st.success("""
             **Mengapa Memilih Random Forest untuk Tahap Deployment?**
-            
             Sebagai metode *Ensemble*, algoritma ini bekerja dengan membangun sekumpulan pohon keputusan (100 *decision trees*) lalu mengambil keputusan berbasis mayoritas suara (*majority voting*). Pendekatan ini membuatnya jauh lebih kuat dan akurat.
             """)
             
@@ -317,40 +300,57 @@ else:
         st.plotly_chart(fig_imp, use_container_width=True)
 
     # ----------------------------------------
-    # TAB 4: SIMULASI PREDIKSI (DEPLOYMENT 7 HARI)
+    # TAB 4: SIMULASI PREDIKSI (DEPLOYMENT 1 BULAN)
     # ----------------------------------------
     with tab4:
         st.markdown("""
         <div style="background-color:#D81B60;padding:20px;border-radius:10px;margin-bottom:20px">
-            <h2 style="color:white;margin:0">🚀 SIMULASI PREDIKSI (AKTIVITAS 7 HARI)</h2>
-            <p style="color:#FCE4EC;margin:5px 0 0 0">Prediksi Otomatis Tingkat Aktivitas Mingguan Pengguna</p>
+            <h2 style="color:white;margin:0">🚀 SIMULASI PREDIKSI (AKTIVITAS 1 BULAN)</h2>
+            <p style="color:#FCE4EC;margin:5px 0 0 0">Prediksi Otomatis Tingkat Aktivitas Bulanan Dosen dan Tendik</p>
         </div>
         """, unsafe_allow_html=True)
         
         st.info("""
-        ℹ️ **Panduan Simulasi Mingguan:** Masukkan total perkiraan durasi (*dalam satuan Menit*) penggunaan Microsoft Teams milik seorang Dosen atau Tendik selama **7 Hari (Satu Minggu) terakhir**.
-        Sistem AI akan mengekstrapolasi data ini dan mengklasifikasikan performa pengguna tersebut.
+        ℹ️ **Cara Kerja AI:** Sistem Kecerdasan Buatan ini (*Random Forest Classifier*) akan mengelompokkan input Anda dengan cara membandingkan pola durasinya terhadap kebiasaan ribuan pengguna lain di dalam *database* kampus yang sudah dipelajari sebelumnya.
         """)
         
+        # Contoh Penggunaan Skenario
+        with st.expander("💡 BUKA UNTUK MELIHAT CONTOH PENGGUNAAN (SKENARIO INPUT)"):
+            st.markdown("""
+            Jika Anda bingung angka apa yang harus diinput, berikut adalah estimasi cara menghitung durasi aktivitas selama **1 Bulan (4 Minggu)**:
+            
+            **Skenario A (Contoh Input Dosen Mengajar):**
+            * Dosen mengajar 2 Mata Kuliah per minggu via MS Teams. Tiap sesi berlangsung 100 menit. 
+            * Maka dalam 1 Bulan (8 sesi):
+              * **Durasi Audio:** 800 Menit (Mikrofon aktif terus selama mengajar).
+              * **Durasi Video:** 600 Menit (Kamera menyala sebagian waktu).
+              * **Durasi Screen Share:** 400 Menit (Membagikan materi PPT).
+              
+            **Skenario B (Contoh Input Tendik Rapat):**
+            * Tendik melakukan rapat koordinasi mingguan 1 kali seminggu. Tiap sesi 60 Menit.
+            * Maka dalam 1 Bulan (4 sesi):
+              * **Durasi Audio:** 240 Menit.
+              * **Durasi Video:** 120 Menit.
+              * **Durasi Screen Share:** 60 Menit (Sesekali membagikan data Excel/Word).
+            """)
+        
         with st.form("form_prediksi"):
-            st.markdown("#### 📥 Form Input Data Aktivitas Mingguan (7 Hari)")
+            st.markdown("#### 📥 Form Input Data Aktivitas Bulanan (30 Hari)")
             col_in1, col_in2, col_in3 = st.columns(3)
             
-            # Nilai default disesuaikan untuk skala 7 Hari kerja (misal: 100-300 menit per minggu)
+            # Nilai default disesuaikan untuk skala bulanan
             with col_in1:
-                audio_in = st.number_input("🎙️ Durasi Audio (Menit/Minggu)", min_value=0, value=120, step=10, help="Total waktu berbicara selama 7 hari terakhir.")
+                audio_in = st.number_input("🎙️ Durasi Audio (Menit/Bulan)", min_value=0, value=800, step=50, help="Total menit interaksi suara/mikrofon aktif dalam sebulan.")
             with col_in2:
-                video_in = st.number_input("📹 Durasi Video (Menit/Minggu)", min_value=0, value=90, step=10, help="Total waktu menyalakan kamera selama 7 hari terakhir.")
+                video_in = st.number_input("📹 Durasi Video (Menit/Bulan)", min_value=0, value=600, step=50, help="Total menit kamera/webcam diaktifkan dalam sebulan.")
             with col_in3:
-                screen_in = st.number_input("💻 Durasi Screen Share (Menit/Minggu)", min_value=0, value=45, step=10, help="Total waktu presentasi/berbagi layar selama 7 hari terakhir.")
+                screen_in = st.number_input("💻 Durasi Screen Share (Menit/Bulan)", min_value=0, value=400, step=50, help="Total menit membagikan layar presentasi dalam sebulan.")
                 
-            submit_btn = st.form_submit_button("Mulai Analisis AI (Mingguan)", type="primary")
+            submit_btn = st.form_submit_button("Mulai Analisis AI (Bulanan)", type="primary")
             
         if submit_btn:
             total_in = audio_in + video_in + screen_in
             
-            # Karena model dilatih pada keseluruhan data observasi, kita memberikan estimasi proporsional
-            # Namun, secara operasional kita langsung memprediksi nilai mentahnya.
             data_baru = pd.DataFrame({
                 'Audio Duration (Menit)': [audio_in],
                 'Video Duration (Menit)': [video_in],
@@ -358,7 +358,7 @@ else:
                 'Total_Duration (Menit)': [total_in]
             })
             
-            # Melakukan transformasi penskalaan fitur
+            # Melakukan transformasi penskalaan fitur (Z-Score Normalization)
             data_baru_scaled = scaler.transform(data_baru)
             
             # Prediksi kelas dan probabilitas
@@ -367,41 +367,44 @@ else:
             proba = model_terpilih.predict_proba(data_baru_scaled)[0]
             
             st.markdown("---")
-            st.markdown("### 🔔 Hasil Analisis Evaluasi Mingguan (7 Hari)")
+            st.markdown("### 🔔 Hasil Analisis Performa Bulanan (1 Bulan)")
             
             col_res1, col_res2 = st.columns([1, 2])
             
             with col_res1:
-                st.metric("Total Durasi 7 Hari Terakhir", f"{total_in} Menit")
+                st.metric("Total Akumulasi Durasi Bulanan", f"{total_in} Menit")
                 if hasil_prediksi == "Rendah":
-                    st.markdown("Performa Mingguan: <span style='color:#EF5350;font-weight:bold;font-size:24px'>RENDAH</span>", unsafe_allow_html=True)
+                    st.markdown("Performa Bulanan: <br><span style='color:#EF5350;font-weight:bold;font-size:28px'>RENDAH</span>", unsafe_allow_html=True)
                 elif hasil_prediksi == "Sedang":
-                    st.markdown("Performa Mingguan: <span style='color:#FFCA28;font-weight:bold;font-size:24px'>SEDANG</span>", unsafe_allow_html=True)
+                    st.markdown("Performa Bulanan: <br><span style='color:#FFCA28;font-weight:bold;font-size:28px'>SEDANG</span>", unsafe_allow_html=True)
                 else:
-                    st.markdown("Performa Mingguan: <span style='color:#66BB6A;font-weight:bold;font-size:24px'>TINGGI</span>", unsafe_allow_html=True)
+                    st.markdown("Performa Bulanan: <br><span style='color:#66BB6A;font-weight:bold;font-size:28px'>TINGGI</span>", unsafe_allow_html=True)
                 
             with col_res2:
-                st.markdown("**📊 Tingkat Keyakinan Keputusan Model (*Class Probabilities*):**")
-                st.progress(float(proba[0]), text=f"Kemungkinan Kelas Rendah: {proba[0]:.1%}")
-                st.progress(float(proba[1]), text=f"Kemungkinan Kelas Sedang: {proba[1]:.1%}")
-                st.progress(float(proba[2]), text=f"Kemungkinan Kelas Tinggi: {proba[2]:.1%}")
+                st.markdown("**📊 Tingkat Keyakinan Keputusan Model AI (*Class Probabilities*):**")
+                st.progress(float(proba[0]), text=f"Kemungkinan Masuk Kelas Rendah: {proba[0]:.1%}")
+                st.progress(float(proba[1]), text=f"Kemungkinan Masuk Kelas Sedang: {proba[1]:.1%}")
+                st.progress(float(proba[2]), text=f"Kemungkinan Masuk Kelas Tinggi: {proba[2]:.1%}")
             
-            st.markdown("### 📌 Arti Hasil Klasifikasi & Rekomendasi Kebijakan Kampus:")
+            st.markdown("### 📌 Kesimpulan Sistem & Rekomendasi Institusi:")
             if hasil_prediksi == "Rendah":
                 st.error("""
-                **Interpretasi Kelas - RENDAH:** Selama **7 hari terakhir**, aktivitas pengguna pada platform MS Teams dinilai sangat minim. 
+                **Kesimpulan (Kategori RENDAH):** Kalkulasi AI menunjukkan bahwa dalam **1 bulan terakhir**, aktivitas pengguna pada platform e-learning/rapat kampus tergolong sangat minim (di bawah standar rata-rata normal).
                 
-                **Rekomendasi:** Perlu dipastikan apakah dalam seminggu terakhir pengguna sedang cuti/dinas luar. Jika merupakan minggu kerja aktif, pengguna direkomendasikan untuk meningkatkan interaksi digital kampus.
+                **Rekomendasi Tindakan Administrasi:** * Lakukan pengecekan rutinitas apakah pengguna sedang menjalani cuti akademik atau dinas luar negeri bulan ini.
+                * Jika pengguna dalam masa kerja aktif, dianjurkan untuk memberikan panduan (*refreshment*) guna mendorong pemanfaatan fasilitas kerja kolaboratif digital Microsoft Teams secara optimal.
                 """)
             elif hasil_prediksi == "Sedang":
                 st.warning("""
-                **Interpretasi Kelas - SEDANG:** Selama **7 hari terakhir**, pengguna telah menjalankan komunikasi rutin, namun keterlibatan visual dan berbagi konten (*screen share*) masih pada ambang batas rata-rata.
+                **Kesimpulan (Kategori SEDANG):** Kalkulasi AI menunjukkan performa penggunaan bulanan berada di level aman. Komunikasi berjalan rutin, namun interaksi tingkat lanjut (seperti penyalaan video visual atau berbagi materi presentasi) masih di level standar.
                 
-                **Rekomendasi:** Penggunaan sudah baik. Pertahankan pola kerja kolaboratif ini untuk minggu-minggu berikutnya.
+                **Rekomendasi Tindakan Administrasi:** * Penggunaan platform sudah cukup memadai untuk operasional kampus standar. 
+                * Fakultas dapat memberikan imbauan ringan agar fitur video lebih sering diaktifkan selama perkuliahan atau rapat koordinasi demi peningkatan keterlibatan interaktif (*interactive engagement*).
                 """)
             else:
                 st.success("""
-                **Interpretasi Kelas - TINGGI:** Kinerja kolaborasi digital pengguna selama **7 hari terakhir** tercatat sangat memuaskan (*Power User*). 
+                **Kesimpulan (Kategori TINGGI):** Kalkulasi AI mengidentifikasi pengguna ini sebagai **Power User**. Keterlibatan bulanan sangat impresif dengan intensitas *audio*, *video*, dan *screen share* yang sangat padat.
                 
-                **Rekomendasi:** Intensitas *audio*, *video*, dan *screen share* mingguan sangat tinggi, menjadikannya contoh teladan penggunaan IT kampus yang produktif.
+                **Rekomendasi Tindakan Administrasi:** * Sangat direkomendasikan untuk menjadikan pengguna profil ini sebagai *Role Model* implementasi transformasi digital di tingkat program studi maupun dekanat.
+                * Pengguna ini sangat fasih dalam digitalisasi dan kolaborasi jarak jauh.
                 """)
