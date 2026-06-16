@@ -62,7 +62,6 @@ def load_and_preprocess_data():
     )
     
     # 5. Membuat Label Target berdasarkan Meeting Count
-    # Kunci Jawaban Prediksi: Rendah (<=5 rapat), Sedang (6-15 rapat), Tinggi (>15 rapat)
     def kategori_aktivitas(x):
         if x <= 5: return "Rendah"
         elif x <= 15: return "Sedang"
@@ -212,6 +211,13 @@ else:
                                  color_discrete_sequence=CUSTOM_COLORS, title="Komposisi Pengguna")
                 fig_pie.update_traces(textposition='inside', textinfo='percent+label')
                 st.plotly_chart(fig_pie, use_container_width=True)
+                
+                with st.expander("💡 Insight Penggunaan MS Teams: Komposisi Dosen vs Tendik", expanded=True):
+                    st.markdown("""
+                    **Interpretasi Operasional:** Proporsi peran pada grafik ini memberikan petunjuk tentang arah utama adopsi Microsoft Teams di kampus. 
+                    * Jika **Dosen** mendominasi, artinya Teams diandalkan sebagai alat *e-learning* (perkuliahan sinkron daring, bimbingan skripsi). 
+                    * Jika **Tendik** (Tenaga Kependidikan) mendominasi, artinya platform ini telah menjadi tulang punggung koordinasi administrasi internal (rapat fakultas, rektorat, dan staf tata usaha).
+                    """)
             else:
                 st.metric(f"Total Pengguna ({pilihan_role})", f"{len(df_eda)} Orang")
                 st.markdown(f"*(Visualisasi proporsi peran disembunyikan karena Anda sedang memfilter spesifik hanya pada **{pilihan_role}**)*")
@@ -228,12 +234,19 @@ else:
                              title=f"Distribusi Tingkat Aktivitas ({pilihan_role})")
             fig_bar.update_layout(showlegend=False)
             st.plotly_chart(fig_bar, use_container_width=True)
+            
+            with st.expander("💡 Insight Penggunaan MS Teams: Tingkat Aktivitas", expanded=True):
+                st.markdown("""
+                **Interpretasi Operasional:**
+                Grafik ini memetakan komitmen budaya kerja digital civitas akademika:
+                * **Banyak di Kelas 'Rendah':** Menunjukkan bahwa Teams mungkin hanya digunakan secara sporadis (misal: hanya diwajibkan untuk acara seremonial atau sidang ujian tertentu saja).
+                * **Banyak di Kelas 'Tinggi' & 'Sedang':** Menunjukkan bahwa habit kerja Hybrid/Jarak Jauh di lingkungan UIN Jakarta sudah matang. Platform tidak lagi dianggap sekadar alat bantu sesekali, melainkan sudah menjadi ruang kerja utama sehari-hari.
+                """)
 
         st.markdown("---")
         
         # BOXPLOT DISTRIBUSI DURASI
-        st.markdown("### 📦 Distribusi Durasi Penggunaan (Deteksi Outlier)")
-        st.markdown("Grafik *Boxplot* ini sangat berguna untuk melihat nilai tengah (median) serta mengidentifikasi pengguna ekstrim (*outliers*).")
+        st.markdown("### 📦 Distribusi Durasi Penggunaan (Pola Gaya Rapat & Deteksi Outlier)")
         
         df_melt = df_eda.melt(id_vars=['User ID', 'Activity_Level'], 
                               value_vars=['Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)'],
@@ -243,6 +256,13 @@ else:
                          color_discrete_map={"Rendah": "#EF5350", "Sedang": "#FFCA28", "Tinggi": "#66BB6A"},
                          title=f"Sebaran Durasi Fitur berdasarkan Tingkat Aktivitas ({pilihan_role})")
         st.plotly_chart(fig_box, use_container_width=True)
+
+        with st.expander("💡 Insight Penggunaan MS Teams: 'Gaya' Rapat & Power Users", expanded=True):
+            st.markdown("""
+            **Interpretasi Operasional:**
+            * **Budaya Perkuliahan Klasik (Hemat Bandwidth):** Jika box pada atribut "Audio" dan "Screen Share" tinggi namun "Video" sangat rendah, ini menandakan pola perkuliahan satu arah. Dosen presentasi menggunakan suara dan pembagian layar, sementara partisipan mematikan kamera (kemungkinan untuk menjaga stabilitas koneksi/hemat kuota).
+            * **Deteksi Titik-Titik Outlier:** Titik-titik yang terlempar jauh ke atas melebihi garis kumis boxplot (whisker) merupakan **Power Users**. Mereka adalah individu (bisa jadi Dekan, Kaprodi, atau Dosen super aktif) yang secara konsisten mengadakan webinar, rapat koordinasi non-stop, atau kelas pengganti setiap hari.
+            """)
 
         st.markdown("---")
         
@@ -257,6 +277,14 @@ else:
         )
         fig_scatter_3d.update_layout(margin=dict(l=0, r=0, b=0, t=0), height=550)
         st.plotly_chart(fig_scatter_3d, use_container_width=True)
+        
+        with st.expander("💡 Insight Penggunaan MS Teams: Analisis Sinergi Fitur Lanjutan", expanded=True):
+            st.markdown("""
+            **Interpretasi Operasional:**
+            Grafik 3D ini membuktikan seberapa dalam pengguna mengeksploitasi alat kolaborasi:
+            * **Menumpuk di satu Sumbu (Misal hanya Audio tinggi):** Pengguna mungkin memfungsikan MS Teams layaknya 'telepon suara' biasa untuk koordinasi instan 1-on-1, tanpa kebutuhan untuk menatap muka atau membedah dokumen bersama.
+            * **Klaster Sudut Kanan Atas (Tinggi di Ketiga Sumbu):** Ini adalah potret *Interactive Facilitator*. Saat orang ini mengadakan sesi di Teams, ia tidak sekadar 'hadir', tetapi ia berbicara (Audio), ia ingin audiensnya bertatap muka (Video), dan ia membedah materi/dokumen kerja secara langsung (Screen Share). Inilah standar ideal pelaksanaan *Smart University*.
+            """)
         
     # ----------------------------------------
     # TAB 3: EVALUASI MODEL
