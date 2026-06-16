@@ -123,7 +123,7 @@ st.sidebar.markdown("Dashboard Aktivitas MS Teams UIN Jakarta")
 st.sidebar.markdown("---")
 st.sidebar.success("🔒 **Data Privacy Active**\nSemua data sensitif pengguna telah dienkripsi/dianonimkan untuk menjamin kerahasiaan publik.")
 st.sidebar.markdown("---")
-st.sidebar.markdown("**Tim Peneliti (2026):**\n- **Abdullah** \n- **Syariffah Alvi Tara Udini**")
+st.sidebar.markdown("**Tim Peneliti (2026):**\n- **Abdullah, S.Kom.**\n- **Syariffah Alvi Tara Udini**")
 st.sidebar.markdown("**Instansi:** UIN Syarif Hidayatullah Jakarta")
 
 # ==========================================
@@ -216,7 +216,7 @@ else:
                     st.markdown("""
                     **Interpretasi Operasional:** Proporsi peran pada grafik ini memberikan petunjuk tentang arah utama adopsi Microsoft Teams di kampus. 
                     * Jika **Dosen** mendominasi, artinya Teams diandalkan sebagai alat *e-learning* (perkuliahan sinkron daring, bimbingan skripsi). 
-                    * Jika **Tendik** mendominasi, artinya platform ini telah menjadi tulang punggung koordinasi administrasi internal (rapat fakultas, rektorat, dan staf tata usaha).
+                    * Jika **Tendik** (Tenaga Kependidikan) mendominasi, artinya platform ini telah menjadi tulang punggung koordinasi administrasi internal (rapat fakultas, rektorat, dan staf tata usaha).
                     """)
             else:
                 st.metric(f"Total Pengguna ({pilihan_role})", f"{len(df_eda)} Orang")
@@ -240,56 +240,45 @@ else:
                 **Interpretasi Operasional:**
                 Grafik ini memetakan komitmen budaya kerja digital civitas akademika:
                 * **Banyak di Kelas 'Rendah':** Menunjukkan bahwa Teams mungkin hanya digunakan secara sporadis (misal: hanya diwajibkan untuk acara seremonial atau sidang ujian tertentu saja).
-                * **Banyak di Kelas 'Tinggi' & 'Sedang':** Menunjukkan bahwa habit kerja Hybrid/Jarak Jauh di lingkungan UIN Jakarta sudah matang dan platform ini menjadi ruang kerja utama sehari-hari.
+                * **Banyak di Kelas 'Tinggi' & 'Sedang':** Menunjukkan bahwa habit kerja Hybrid/Jarak Jauh di lingkungan UIN Jakarta sudah matang. Platform tidak lagi dianggap sekadar alat bantu sesekali, melainkan sudah menjadi ruang kerja utama sehari-hari.
                 """)
 
         st.markdown("---")
         
-        # 2. RADAR CHART (VISUALISASI BARU)
-        st.markdown("### 🕸️ Profil Multi-Dimensi Tingkat Aktivitas (Radar Chart)")
+        # 2. BAR CHART BARU: PERBANDINGAN RATA-RATA DURASI FITUR
+        st.markdown("### 📊 Perbandingan Rata-rata Durasi Penggunaan Fitur")
         
-        # Menghitung rata-rata masing-masing fitur berdasarkan Activity Level
-        radar_data = df_eda.groupby('Activity_Level')[['Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)']].mean().reset_index()
-        kategori_radar = ['Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)']
+        # Menghitung rata-rata masing-masing fitur
+        avg_data = {
+            'Jenis Fitur': ['Audio (Suara)', 'Video (Kamera)', 'Screen Share (Presentasi)'],
+            'Rata-rata Durasi (Menit)': [
+                df_eda['Audio Duration (Menit)'].mean(),
+                df_eda['Video Duration (Menit)'].mean(),
+                df_eda['Screen Share (Menit)'].mean()
+            ]
+        }
+        df_avg = pd.DataFrame(avg_data)
         
-        fig_radar = go.Figure()
-        warna_radar = {"Rendah": "#EF5350", "Sedang": "#FFCA28", "Tinggi": "#66BB6A"}
-        
-        # Hanya plot kategori yang ada di radar_data
-        for index, row in radar_data.iterrows():
-            level = row['Activity_Level']
-            fig_radar.add_trace(go.Scatterpolar(
-                r=[row['Audio Duration (Menit)'], row['Video Duration (Menit)'], row['Screen Share (Menit)']],
-                theta=kategori_radar,
-                fill='toself',
-                name=level,
-                line_color=warna_radar.get(level, '#000000'),
-                opacity=0.7
-            ))
-            
-        # Untuk membuat ujung radar terhubung penuh (loop), Plotly otomatis menangani jika kita pakai Scatterpolar biasa, 
-        # namun untuk tampilan lebih mulus, layout disesuaikan:
-        fig_radar.update_layout(
-            polar=dict(
-                radialaxis=dict(visible=True, showticklabels=False)
-            ),
-            showlegend=True,
-            title=f"Rata-rata Intensitas Penggunaan Fitur berdasarkan Kelas Aktivitas ({pilihan_role})",
-            height=500
+        fig_avg_bar = px.bar(
+            df_avg, x='Jenis Fitur', y='Rata-rata Durasi (Menit)', text='Rata-rata Durasi (Menit)',
+            color='Jenis Fitur', color_discrete_sequence=['#1E88E5', '#D81B60', '#FFC107'],
+            title=f"Rata-rata Durasi Fitur per Pengguna ({pilihan_role})"
         )
-        st.plotly_chart(fig_radar, use_container_width=True)
-        
-        with st.expander("💡 Insight Penggunaan MS Teams: Pemetaan Karakteristik Multi-Dimensi", expanded=True):
+        # Merapikan label angka di atas batang
+        fig_avg_bar.update_traces(texttemplate='%{text:.1f} Menit', textposition='outside')
+        fig_avg_bar.update_layout(showlegend=False, yaxis_range=[0, df_avg['Rata-rata Durasi (Menit)'].max() * 1.2])
+        st.plotly_chart(fig_avg_bar, use_container_width=True)
+
+        with st.expander("💡 Insight Penggunaan MS Teams: Preferensi Fitur Kolaborasi", expanded=True):
             st.markdown("""
-            **Interpretasi Operasional (Cara Membaca Radar Chart):**
-            Grafik jaring laba-laba (*Radar Chart*) ini memvisualisasikan "Bentuk" profil pengguna dari setiap tingkatan aktivitas berdasarkan rata-rata penggunaannya.
-            
-            * **Poligon Hijau (Kelas Tinggi) yang Meluas:** Menunjukkan bahwa para *Power Users* tidak hanya rapat dalam waktu yang lama, tetapi mereka mendominasi **ketiga dimensi sekaligus**. Mereka aktif berbicara (Audio), interaktif secara visual (Video), dan selalu berkolaborasi dokumen (Screen Share). Area hijau yang luas dan menyentuh sisi terluar mencerminkan ekosistem digital yang sehat dan menyeluruh.
-            * **Keseimbangan Sumbu (Bentuk Segitiga):** Perhatikan bentuk poligon. Jika bentuknya cenderung tertarik kuat hanya ke satu sumbu (misal: lancip mengarah ke *Audio* saja), artinya interaksi rapat lebih didominasi oleh komunikasi searah (seperti mendengarkan radio) tanpa adanya kolaborasi data visual.
+            **Interpretasi Operasional:**
+            Grafik batang ini menyoroti **fitur mana yang paling sering diandalkan** oleh pengguna selama sesi MS Teams berlangsung.
+            * **Dominasi Audio:** Merupakan pola wajar karena setiap rapat pasti membutuhkan *microphone*. Namun, jika jarak antara batang Audio dengan Video/Screen Share sangat senjang (jauh berbeda), ini mengindikasikan bahwa sebagian besar sesi di kampus berjalan satu arah atau pasif (peserta hanya mendengarkan).
+            * **Video & Screen Share Proporsional:** Jika nilai batang Video dan Screen Share menyusul tidak jauh di belakang Audio, ini adalah pertanda sangat baik. Hal ini membuktikan tingginya tingkat interaksi dua arah, *engagement* visual, dan kolaborasi aktif (seperti rapat pleno terfokus, bimbingan skripsi, atau presentasi mahasiswa).
             """)
 
         st.markdown("---")
-        
+
         # 3. BOXPLOT DISTRIBUSI DURASI
         st.markdown("### 📦 Distribusi Durasi Penggunaan (Pola Gaya Rapat & Deteksi Outlier)")
         
@@ -305,14 +294,14 @@ else:
         with st.expander("💡 Insight Penggunaan MS Teams: 'Gaya' Rapat & Power Users", expanded=True):
             st.markdown("""
             **Interpretasi Operasional:**
-            * **Budaya Rapat/Kuliah Klasik:** Jika kotak (*box*) pada atribut "Audio" dan "Screen Share" tinggi namun "Video" sangat rendah/sempit, ini menandakan pola perkuliahan satu arah. Fasilitator presentasi menggunakan suara dan materi, sementara audiens mematikan kamera (kemungkinan untuk menjaga stabilitas koneksi/hemat kuota).
-            * **Deteksi Titik-Titik Outlier:** Titik-titik yang terlempar jauh ke atas melebihi garis kumis boxplot (*whisker*) merupakan para individu ekstrim. Mereka adalah pengguna (bisa jadi Dekan, Kaprodi, atau Dosen super aktif) yang secara konsisten mengadakan webinar, rapat koordinasi non-stop, atau kelas pengganti yang memakan waktu jauh di atas normal.
+            * **Budaya Perkuliahan Klasik (Hemat Bandwidth):** Jika kotak (*box*) pada atribut "Audio" dan "Screen Share" membentang tinggi namun "Video" sangat rendah, ini menandakan pola perkuliahan jarak jauh. Dosen presentasi menggunakan layar, sementara mahasiswa/peserta mematikan kamera (kemungkinan untuk menjaga stabilitas koneksi jaringan).
+            * **Deteksi Titik-Titik Outlier:** Titik-titik yang terlempar jauh ke atas melebihi garis kumis boxplot (*whisker*) adalah para **Power Users**. Mereka adalah individu (bisa jadi Dekan, Kaprodi, staf pendaftaran, atau Dosen super aktif) yang memimpin rapat koordinasi non-stop atau webinar secara berkelanjutan.
             """)
 
         st.markdown("---")
         
         # 4. SCATTER PLOT 3D
-        st.markdown("### 🌐 Korelasi Multivariat Tiga Dimensi (Sebaran Individu)")
+        st.markdown("### 🌐 Korelasi Multivariat (Audio vs Video vs Screen Share)")
         fig_scatter_3d = px.scatter_3d(
             df_eda, x='Audio Duration (Menit)', y='Video Duration (Menit)', z='Screen Share (Menit)',
             color='Activity_Level', symbol='Activity_Level',
@@ -326,9 +315,9 @@ else:
         with st.expander("💡 Insight Penggunaan MS Teams: Analisis Sinergi Fitur Lanjutan", expanded=True):
             st.markdown("""
             **Interpretasi Operasional:**
-            Jika *Radar Chart* melihat rata-rata, grafik 3D ini membuktikan sebaran individu satu-per-satu dalam mengeksploitasi platform MS Teams:
-            * **Menumpuk di satu Sumbu (Misal hanya titik berkumpul di sumbu Audio):** Menandakan pengguna memfungsikan MS Teams layaknya 'telepon suara' biasa untuk koordinasi instan, tanpa kebutuhan membedah dokumen bersama.
-            * **Klaster Sudut Kanan Atas (Tinggi di Ketiga Sumbu):** Ini adalah potret fasilitator sejati. Saat orang dengan titik ini mengadakan sesi di Teams, ia berbicara dengan antusias (Audio), menatap audiensnya (Video), dan membedah materi kerja secara langsung (Screen Share). Inilah standar ideal pelaksanaan *Smart University*.
+            Grafik 3D ini membuktikan seberapa dalam pengguna mengeksploitasi fitur digital:
+            * **Menumpuk di Satu Sumbu (Misal hanya Audio tinggi):** Pengguna mungkin memfungsikan MS Teams layaknya panggilan telepon biasa untuk koordinasi instan, tanpa kebutuhan membedah dokumen kerja bersama.
+            * **Klaster Sudut Atas (Tinggi di Ketiga Sumbu):** Ini adalah potret *Interactive Facilitator*. Saat profil ini memimpin sesi, ia tidak sekadar 'hadir'. Ia berbicara aktif (Audio), menatap audiensnya (Video), dan membedah materi kerja secara langsung (Screen Share). Ini adalah standar ideal menuju visi *Smart University*.
             """)
         
     # ----------------------------------------
@@ -359,7 +348,7 @@ else:
             st.markdown("### 📋 Catatan Teknis Peneliti")
             st.success("""
             **Mengapa Memilih Random Forest untuk Tahap Deployment?**
-            Sebagai metode *Ensemble*, algoritma ini bekerja dengan membangun sekumpulan pohon keputusan (100 *decision trees*) lalu mengambil keputusan berbasis mayoritas suara (*majority voting*). Pendekatan ini membuatnya jauh lebih kuat dan akurat dalam membaca log aktivitas kampus.
+            Sebagai metode *Ensemble*, algoritma ini bekerja dengan membangun sekumpulan pohon keputusan (100 *decision trees*) lalu mengambil keputusan berbasis mayoritas suara (*majority voting*). Pendekatan ini membuatnya jauh lebih kuat terhadap *noise* data dan memiliki akurasi yang lebih konsisten.
             """)
             
         st.markdown("---")
