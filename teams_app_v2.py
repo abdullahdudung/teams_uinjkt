@@ -43,12 +43,16 @@ def load_and_preprocess_data():
     # 2. Standardisasi Data
     df['Role'] = df['Role'].replace({'tendik': 'Tendik'})
     
-    # 3. ANONIMISASI DATA (Menjaga Kerahasiaan Privasi)
-    kolom_privasi = ['Username', 'Email', 'Name', 'Display Name', 'User Principal Name']
+    # 3. PENGELOLAAN PRIVASI (Namun Username dipertahankan untuk Papan Peringkat)
+    kolom_privasi = ['Email', 'Name', 'Display Name', 'User Principal Name']
     df = df.drop(columns=[col for col in kolom_privasi if col in df.columns], errors='ignore')
     
-    # Membuat ID Pengguna Anonim (misal: User_0001)
+    # Membuat ID Pengguna Anonim untuk tampilan publik (misal: User_0001)
     df.insert(0, 'User ID', ['User_' + str(i).zfill(4) for i in range(1, len(df) + 1)])
+    
+    # Memastikan kolom Username ada (sebagai identifier asli)
+    if 'Username' not in df.columns:
+        df['Username'] = df['User ID'] # Fallback jika kolom asli bernama lain
     
     # 4. Konversi Detik ke Menit & Feature Engineering
     df['Audio Duration (Menit)'] = df['Audio Duration In Seconds'] / 60
@@ -117,11 +121,11 @@ def train_models(df):
 # ==========================================
 # SIDEBAR
 # ==========================================
-st.sidebar.image("https://commons.wikimedia.org/wiki/File:Microsoft_Office_Teams_(2025%E2%80%93present).svg", width=80)
+st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/c/c4/Microsoft_Teams_14_logo.svg/512px-Microsoft_Teams_14_logo.svg.png", width=80)
 st.sidebar.title("MS Teams Analytics")
 st.sidebar.markdown("Dashboard Aktivitas MS Teams UIN Jakarta")
 st.sidebar.markdown("---")
-st.sidebar.success("🔒 **Data Privacy Active**\nSemua data sensitif pengguna telah dienkripsi/dianonimkan untuk menjamin kerahasiaan publik.")
+st.sidebar.success("🔒 **Data Privacy Hybrid**\nIdentitas disamarkan pada ringkasan umum, namun Papan Peringkat menampilkan otoritas nama asli untuk evaluasi institusi.")
 st.sidebar.markdown("---")
 st.sidebar.markdown("**Tim Peneliti (2026):**\n- **Abdullah, S.Kom.**\n- **Syariffah Alvi Tara Udini**")
 st.sidebar.markdown("**Instansi:** UIN Syarif Hidayatullah Jakarta")
@@ -171,9 +175,10 @@ else:
         st.markdown("<br>", unsafe_allow_html=True)
         st.markdown("### 📋 Preview Dataset Utama (Telah Dianonimkan)")
         
+        # Menyembunyikan 'Username' di halaman preview
         kolom_tampil = ['User ID', 'Role', 'Meeting Count', 'Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)', 'Total_Duration (Menit)', 'Activity_Level']
         st.dataframe(df[kolom_tampil].head(15), use_container_width=True, hide_index=True)
-        st.caption("Catatan: Identitas asli pengguna telah dihapus. Data dikonversi ke satuan Menit.")
+        st.caption("Catatan: Identitas asli pengguna telah dihapus pada preview ini. Data dikonversi ke satuan Menit.")
         
     # ----------------------------------------
     # TAB 2: EXPLORATORY DATA ANALYSIS (EDA)
@@ -182,7 +187,7 @@ else:
         st.markdown("""
         <div style="background-color:#1E88E5;padding:20px;border-radius:10px;margin-bottom:20px">
             <h2 style="color:white;margin:0">📈 MENU EXPLORATORY DATA ANALYSIS (EDA)</h2>
-            <p style="color:#E3F2FD;margin:5px 0 0 0">Eksplorasi Karakteristik dan Distribusi Data secara Rinci dan Interaktif</p>
+            <p style="color:#E3F2FD;margin:5px 0 0 0">Eksplorasi Karakteristik, Korelasi, dan Ranking Individu Pengguna secara Interaktif</p>
         </div>
         """, unsafe_allow_html=True)
         
@@ -216,7 +221,7 @@ else:
                     st.markdown("""
                     **Interpretasi Operasional:** Proporsi peran pada grafik ini memberikan petunjuk tentang arah utama adopsi Microsoft Teams di kampus. 
                     * Jika **Dosen** mendominasi, artinya Teams diandalkan sebagai alat *e-learning* (perkuliahan sinkron daring, bimbingan skripsi). 
-                    * Jika **Tendik** (Tenaga Kependidikan) mendominasi, artinya platform ini telah menjadi tulang punggung koordinasi administrasi internal (rapat fakultas, rektorat, dan staf tata usaha).
+                    * Jika **Tendik** mendominasi, artinya platform ini telah menjadi tulang punggung koordinasi administrasi internal (rapat fakultas, rektorat).
                     """)
             else:
                 st.metric(f"Total Pengguna ({pilihan_role})", f"{len(df_eda)} Orang")
@@ -238,17 +243,15 @@ else:
             with st.expander("💡 Insight Penggunaan MS Teams: Tingkat Aktivitas", expanded=True):
                 st.markdown("""
                 **Interpretasi Operasional:**
-                Grafik ini memetakan komitmen budaya kerja digital civitas akademika:
-                * **Banyak di Kelas 'Rendah':** Menunjukkan bahwa Teams mungkin hanya digunakan secara sporadis (misal: hanya diwajibkan untuk acara seremonial atau sidang ujian tertentu saja).
-                * **Banyak di Kelas 'Tinggi' & 'Sedang':** Menunjukkan bahwa habit kerja Hybrid/Jarak Jauh di lingkungan UIN Jakarta sudah matang. Platform tidak lagi dianggap sekadar alat bantu sesekali, melainkan sudah menjadi ruang kerja utama sehari-hari.
+                * **Banyak di Kelas 'Rendah':** Menunjukkan penggunaan Teams masih bersifat sporadis.
+                * **Banyak di Kelas 'Tinggi' & 'Sedang':** Menunjukkan bahwa habit kerja Hybrid/Jarak Jauh di lingkungan UIN Jakarta sudah matang dan menjadi rutinitas harian.
                 """)
 
         st.markdown("---")
         
-        # 2. BAR CHART BARU: PERBANDINGAN RATA-RATA DURASI FITUR
+        # 2. BAR CHART: PERBANDINGAN RATA-RATA DURASI FITUR
         st.markdown("### 📊 Perbandingan Rata-rata Durasi Penggunaan Fitur")
         
-        # Menghitung rata-rata masing-masing fitur
         avg_data = {
             'Jenis Fitur': ['Audio (Suara)', 'Video (Kamera)', 'Screen Share (Presentasi)'],
             'Rata-rata Durasi (Menit)': [
@@ -264,23 +267,96 @@ else:
             color='Jenis Fitur', color_discrete_sequence=['#1E88E5', '#D81B60', '#FFC107'],
             title=f"Rata-rata Durasi Fitur per Pengguna ({pilihan_role})"
         )
-        # Merapikan label angka di atas batang
         fig_avg_bar.update_traces(texttemplate='%{text:.1f} Menit', textposition='outside')
         fig_avg_bar.update_layout(showlegend=False, yaxis_range=[0, df_avg['Rata-rata Durasi (Menit)'].max() * 1.2])
         st.plotly_chart(fig_avg_bar, use_container_width=True)
 
-        with st.expander("💡 Insight Penggunaan MS Teams: Preferensi Fitur Kolaborasi", expanded=True):
-            st.markdown("""
-            **Interpretasi Operasional:**
-            Grafik batang ini menyoroti **fitur mana yang paling sering diandalkan** oleh pengguna selama sesi MS Teams berlangsung.
-            * **Dominasi Audio:** Merupakan pola wajar karena setiap rapat pasti membutuhkan *microphone*. Namun, jika jarak antara batang Audio dengan Video/Screen Share sangat senjang (jauh berbeda), ini mengindikasikan bahwa sebagian besar sesi di kampus berjalan satu arah atau pasif (peserta hanya mendengarkan).
-            * **Video & Screen Share Proporsional:** Jika nilai batang Video dan Screen Share menyusul tidak jauh di belakang Audio, ini adalah pertanda sangat baik. Hal ini membuktikan tingginya tingkat interaksi dua arah, *engagement* visual, dan kolaborasi aktif (seperti rapat pleno terfokus, bimbingan skripsi, atau presentasi mahasiswa).
-            """)
+        st.markdown("---")
+
+        # 3. STATISTIK RINGKASAN & HEATMAP KORELASI (BARU)
+        st.markdown("### 🔗 Analisis Korelasi & Statistik Ringkasan")
+        
+        col_stat1, col_stat2 = st.columns([1, 1.5])
+        
+        with col_stat1:
+            st.markdown("**Statistik Deskriptif Numerik**")
+            st.dataframe(
+                df_eda[['Meeting Count', 'Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)']].describe().round(2), 
+                use_container_width=True
+            )
+            st.caption("Menampilkan metrik komputasi statistik (Mean, Min, Max, Kuartil) untuk mengukur tendensi sentral dan sebaran data.")
+            
+        with col_stat2:
+            st.markdown("**Heatmap Korelasi Antar Fitur Aktivitas**")
+            corr_matrix = df_eda[['Meeting Count', 'Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)', 'Total_Duration (Menit)']].corr()
+            
+            fig_corr = px.imshow(
+                corr_matrix, 
+                text_auto=".2f", 
+                aspect="auto", 
+                color_continuous_scale='Blues',
+                labels=dict(color="Korelasi")
+            )
+            st.plotly_chart(fig_corr, use_container_width=True)
+            
+            with st.expander("💡 Insight Penggunaan MS Teams: Heatmap Korelasi", expanded=True):
+                st.markdown("""
+                **Interpretasi Operasional:**
+                Nilai korelasi mendekati **1.00** menandakan hubungan linear positif yang sangat kuat. 
+                * Jika korelasi antara *Audio* dan *Video* tinggi (contoh > 0.70), artinya civitas akademika UIN Jakarta yang sering berbicara dalam rapat juga memiliki budaya kedisiplinan yang baik untuk menyalakan kamera.
+                * Jika nilai *Meeting Count* berkorelasi lemah dengan durasi fitur lainnya, ini menandakan bahwa banyak pengguna yang masuk ke dalam ruang rapat virtual, namun bertindak pasif (hanya *join* tanpa berinteraksi).
+                """)
 
         st.markdown("---")
 
-        # 3. BOXPLOT DISTRIBUSI DURASI
-        st.markdown("### 📦 Distribusi Durasi Penggunaan (Pola Gaya Rapat & Deteksi Outlier)")
+        # 4. PAPAN PERINGKAT PENGGUNA (BARU)
+        st.markdown("### 🏆 Papan Peringkat Kinerja Individu (Top 10 Pengguna)")
+        st.success("🔓 **Otorisasi Publikasi Data:** Informasi identitas asli (Username/Email) pada panel klasemen ini telah diotorisasi untuk ditampilkan guna mengevaluasi kinerja, mobilitas digital, dan pemberian apresiasi (*reward*) institusi bagi Dosen maupun Tendik.")
+
+        # Tab untuk Ranking
+        tab_meet, tab_aud, tab_vid, tab_scr = st.tabs([
+            "📊 Peringkat Jumlah Rapat", 
+            "🎙️ Peringkat Audio Terlama", 
+            "📹 Peringkat Video Terlama", 
+            "💻 Peringkat Screen Share Terlama"
+        ])
+
+        with tab_meet:
+            top_meet = df_eda.nlargest(10, 'Meeting Count').sort_values('Meeting Count', ascending=True)
+            fig_meet = px.bar(top_meet, x='Meeting Count', y='Username', color='Role', orientation='h', 
+                              text='Meeting Count', color_discrete_map={"Dosen": "#1E88E5", "Tendik": "#FFC107"},
+                              title=f"Top 10 Individu: Frekuensi Rapat Terbanyak ({pilihan_role})")
+            fig_meet.update_traces(textposition='outside')
+            st.plotly_chart(fig_meet, use_container_width=True)
+
+        with tab_aud:
+            top_aud = df_eda.nlargest(10, 'Audio Duration (Menit)').sort_values('Audio Duration (Menit)', ascending=True)
+            fig_aud = px.bar(top_aud, x='Audio Duration (Menit)', y='Username', color='Role', orientation='h', 
+                             text='Audio Duration (Menit)', color_discrete_map={"Dosen": "#1E88E5", "Tendik": "#FFC107"},
+                             title=f"Top 10 Individu: Durasi Komunikasi Suara Terlama ({pilihan_role})")
+            fig_aud.update_traces(texttemplate='%{text:.0f}', textposition='outside')
+            st.plotly_chart(fig_aud, use_container_width=True)
+
+        with tab_vid:
+            top_vid = df_eda.nlargest(10, 'Video Duration (Menit)').sort_values('Video Duration (Menit)', ascending=True)
+            fig_vid = px.bar(top_vid, x='Video Duration (Menit)', y='Username', color='Role', orientation='h', 
+                             text='Video Duration (Menit)', color_discrete_map={"Dosen": "#1E88E5", "Tendik": "#FFC107"},
+                             title=f"Top 10 Individu: Durasi Kamera Menyala Terlama ({pilihan_role})")
+            fig_vid.update_traces(texttemplate='%{text:.0f}', textposition='outside')
+            st.plotly_chart(fig_vid, use_container_width=True)
+
+        with tab_scr:
+            top_scr = df_eda.nlargest(10, 'Screen Share (Menit)').sort_values('Screen Share (Menit)', ascending=True)
+            fig_scr = px.bar(top_scr, x='Screen Share (Menit)', y='Username', color='Role', orientation='h', 
+                             text='Screen Share (Menit)', color_discrete_map={"Dosen": "#1E88E5", "Tendik": "#FFC107"},
+                             title=f"Top 10 Individu: Durasi Presentasi Layar Terlama ({pilihan_role})")
+            fig_scr.update_traces(texttemplate='%{text:.0f}', textposition='outside')
+            st.plotly_chart(fig_scr, use_container_width=True)
+
+        st.markdown("---")
+        
+        # 5. BOXPLOT DISTRIBUSI DURASI
+        st.markdown("### 📦 Analisis Kuartil & Deteksi Anomali (Boxplot)")
         
         df_melt = df_eda.melt(id_vars=['User ID', 'Activity_Level'], 
                               value_vars=['Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)'],
@@ -290,35 +366,6 @@ else:
                          color_discrete_map={"Rendah": "#EF5350", "Sedang": "#FFCA28", "Tinggi": "#66BB6A"},
                          title=f"Sebaran Durasi Fitur berdasarkan Tingkat Aktivitas ({pilihan_role})")
         st.plotly_chart(fig_box, use_container_width=True)
-
-        with st.expander("💡 Insight Penggunaan MS Teams: 'Gaya' Rapat & Power Users", expanded=True):
-            st.markdown("""
-            **Interpretasi Operasional:**
-            * **Budaya Perkuliahan Klasik (Hemat Bandwidth):** Jika kotak (*box*) pada atribut "Audio" dan "Screen Share" membentang tinggi namun "Video" sangat rendah, ini menandakan pola perkuliahan jarak jauh. Dosen presentasi menggunakan layar, sementara mahasiswa/peserta mematikan kamera (kemungkinan untuk menjaga stabilitas koneksi jaringan).
-            * **Deteksi Titik-Titik Outlier:** Titik-titik yang terlempar jauh ke atas melebihi garis kumis boxplot (*whisker*) adalah para **Power Users**. Mereka adalah individu (bisa jadi Dekan, Kaprodi, staf pendaftaran, atau Dosen super aktif) yang memimpin rapat koordinasi non-stop atau webinar secara berkelanjutan.
-            """)
-
-        st.markdown("---")
-        
-        # 4. SCATTER PLOT 3D
-        st.markdown("### 🌐 Korelasi Multivariat (Audio vs Video vs Screen Share)")
-        fig_scatter_3d = px.scatter_3d(
-            df_eda, x='Audio Duration (Menit)', y='Video Duration (Menit)', z='Screen Share (Menit)',
-            color='Activity_Level', symbol='Activity_Level',
-            color_discrete_map={"Rendah": "#EF5350", "Sedang": "#FFCA28", "Tinggi": "#66BB6A"},
-            opacity=0.7, hover_name='User ID',
-            labels={'Activity_Level': 'Tingkat Aktivitas'}
-        )
-        fig_scatter_3d.update_layout(margin=dict(l=0, r=0, b=0, t=0), height=550)
-        st.plotly_chart(fig_scatter_3d, use_container_width=True)
-        
-        with st.expander("💡 Insight Penggunaan MS Teams: Analisis Sinergi Fitur Lanjutan", expanded=True):
-            st.markdown("""
-            **Interpretasi Operasional:**
-            Grafik 3D ini membuktikan seberapa dalam pengguna mengeksploitasi fitur digital:
-            * **Menumpuk di Satu Sumbu (Misal hanya Audio tinggi):** Pengguna mungkin memfungsikan MS Teams layaknya panggilan telepon biasa untuk koordinasi instan, tanpa kebutuhan membedah dokumen kerja bersama.
-            * **Klaster Sudut Atas (Tinggi di Ketiga Sumbu):** Ini adalah potret *Interactive Facilitator*. Saat profil ini memimpin sesi, ia tidak sekadar 'hadir'. Ia berbicara aktif (Audio), menatap audiensnya (Video), dan membedah materi kerja secara langsung (Screen Share). Ini adalah standar ideal menuju visi *Smart University*.
-            """)
         
     # ----------------------------------------
     # TAB 3: EVALUASI MODEL
@@ -348,7 +395,7 @@ else:
             st.markdown("### 📋 Catatan Teknis Peneliti")
             st.success("""
             **Mengapa Memilih Random Forest untuk Tahap Deployment?**
-            Sebagai metode *Ensemble*, algoritma ini bekerja dengan membangun sekumpulan pohon keputusan (100 *decision trees*) lalu mengambil keputusan berbasis mayoritas suara (*majority voting*). Pendekatan ini membuatnya jauh lebih kuat terhadap *noise* data dan memiliki akurasi yang lebih konsisten.
+            Sebagai metode *Ensemble*, algoritma ini bekerja dengan membangun sekumpulan pohon keputusan (100 *decision trees*) lalu mengambil keputusan berbasis mayoritas suara (*majority voting*). Pendekatan ini membuatnya jauh lebih tangguh terhadap *noise* data log.
             """)
             
         st.markdown("---")
@@ -376,7 +423,6 @@ else:
         ℹ️ **Cara Kerja AI:** Sistem Kecerdasan Buatan ini (*Random Forest Classifier*) akan mengelompokkan input Anda dengan cara membandingkan pola durasinya terhadap kebiasaan ribuan pengguna lain di dalam *database* kampus yang sudah dipelajari sebelumnya.
         """)
         
-        # Contoh Penggunaan Skenario
         with st.expander("💡 BUKA UNTUK MELIHAT CONTOH PENGGUNAAN (SKENARIO INPUT)"):
             st.markdown("""
             Jika Anda bingung angka apa yang harus diinput, berikut adalah estimasi cara menghitung durasi aktivitas selama **1 Bulan (4 Minggu)**:
@@ -384,35 +430,33 @@ else:
             **Skenario A (Contoh Input Dosen Mengajar):**
             * Dosen mengajar 2 Mata Kuliah per minggu via MS Teams. Tiap sesi berlangsung 100 menit. 
             * Maka dalam 1 Bulan (8 sesi):
-              * **Durasi Audio:** 800 Menit (Mikrofon aktif terus selama mengajar).
-              * **Durasi Video:** 600 Menit (Kamera menyala sebagian waktu).
-              * **Durasi Screen Share:** 400 Menit (Membagikan materi PPT).
+              * **Durasi Audio:** 800 Menit.
+              * **Durasi Video:** 600 Menit.
+              * **Durasi Screen Share:** 400 Menit.
               
             **Skenario B (Contoh Input Tendik Rapat):**
             * Tendik melakukan rapat koordinasi mingguan 1 kali seminggu. Tiap sesi 60 Menit.
             * Maka dalam 1 Bulan (4 sesi):
               * **Durasi Audio:** 240 Menit.
               * **Durasi Video:** 120 Menit.
-              * **Durasi Screen Share:** 60 Menit (Sesekali membagikan data Excel/Word).
+              * **Durasi Screen Share:** 60 Menit.
             """)
         
         with st.form("form_prediksi"):
             st.markdown("#### 📥 Form Input Data Aktivitas Bulanan (30 Hari)")
             col_in1, col_in2, col_in3 = st.columns(3)
             
-            # Nilai default disesuaikan untuk skala bulanan
             with col_in1:
-                audio_in = st.number_input("🎙️ Durasi Audio (Menit/Bulan)", min_value=0, value=800, step=50, help="Total menit interaksi suara/mikrofon aktif dalam sebulan.")
+                audio_in = st.number_input("🎙️ Durasi Audio (Menit/Bulan)", min_value=0, value=800, step=50)
             with col_in2:
-                video_in = st.number_input("📹 Durasi Video (Menit/Bulan)", min_value=0, value=600, step=50, help="Total menit kamera/webcam diaktifkan dalam sebulan.")
+                video_in = st.number_input("📹 Durasi Video (Menit/Bulan)", min_value=0, value=600, step=50)
             with col_in3:
-                screen_in = st.number_input("💻 Durasi Screen Share (Menit/Bulan)", min_value=0, value=400, step=50, help="Total menit membagikan layar presentasi dalam sebulan.")
+                screen_in = st.number_input("💻 Durasi Screen Share (Menit/Bulan)", min_value=0, value=400, step=50)
                 
             submit_btn = st.form_submit_button("Mulai Analisis AI (Bulanan)", type="primary")
             
         if submit_btn:
             total_in = audio_in + video_in + screen_in
-            
             data_baru = pd.DataFrame({
                 'Audio Duration (Menit)': [audio_in],
                 'Video Duration (Menit)': [video_in],
@@ -420,10 +464,7 @@ else:
                 'Total_Duration (Menit)': [total_in]
             })
             
-            # Melakukan transformasi penskalaan fitur (Z-Score Normalization)
             data_baru_scaled = scaler.transform(data_baru)
-            
-            # Prediksi kelas dan probabilitas
             pred_kode = model_terpilih.predict(data_baru_scaled)[0]
             hasil_prediksi = inv_map[pred_kode]
             proba = model_terpilih.predict_proba(data_baru_scaled)[0]
@@ -451,22 +492,19 @@ else:
             st.markdown("### 📌 Kesimpulan Sistem & Rekomendasi Institusi:")
             if hasil_prediksi == "Rendah":
                 st.error("""
-                **Kesimpulan (Kategori RENDAH):** Kalkulasi AI menunjukkan bahwa dalam **1 bulan terakhir**, aktivitas pengguna pada platform e-learning/rapat kampus tergolong sangat minim (di bawah standar rata-rata normal).
+                **Kesimpulan (Kategori RENDAH):** Kalkulasi AI menunjukkan bahwa aktivitas pengguna sangat minim di bulan ini.
                 
-                **Rekomendasi Tindakan Administrasi:** * Lakukan pengecekan rutinitas apakah pengguna sedang menjalani cuti akademik atau dinas luar negeri bulan ini.
-                * Jika pengguna dalam masa kerja aktif, dianjurkan untuk memberikan panduan (*refreshment*) guna mendorong pemanfaatan fasilitas kerja kolaboratif digital Microsoft Teams secara optimal.
+                **Rekomendasi Tindakan:** Pastikan tidak ada kendala teknis pada akun atau perangkat pengguna. Dorong partisipasi aktif melalui sosialisasi e-learning.
                 """)
             elif hasil_prediksi == "Sedang":
                 st.warning("""
-                **Kesimpulan (Kategori SEDANG):** Kalkulasi AI menunjukkan performa penggunaan bulanan berada di level aman. Komunikasi berjalan rutin, namun interaksi tingkat lanjut (seperti penyalaan video visual atau berbagi materi presentasi) masih di level standar.
+                **Kesimpulan (Kategori SEDANG):** Performa bulanan berada di level wajar.
                 
-                **Rekomendasi Tindakan Administrasi:** * Penggunaan platform sudah cukup memadai untuk operasional kampus standar. 
-                * Fakultas dapat memberikan imbauan ringan agar fitur video lebih sering diaktifkan selama perkuliahan atau rapat koordinasi demi peningkatan keterlibatan interaktif (*interactive engagement*).
+                **Rekomendasi Tindakan:** Penggunaan sudah cukup memadai. Berikan imbauan ringan agar interaksi visual (kamera) dapat lebih ditingkatkan.
                 """)
             else:
                 st.success("""
-                **Kesimpulan (Kategori TINGGI):** Kalkulasi AI mengidentifikasi pengguna ini sebagai **Power User**. Keterlibatan bulanan sangat impresif dengan intensitas *audio*, *video*, dan *screen share* yang sangat padat.
+                **Kesimpulan (Kategori TINGGI):** Keterlibatan bulanan sangat impresif (*Power User*).
                 
-                **Rekomendasi Tindakan Administrasi:** * Sangat direkomendasikan untuk menjadikan pengguna profil ini sebagai *Role Model* implementasi transformasi digital di tingkat program studi maupun dekanat.
-                * Pengguna ini sangat fasih dalam digitalisasi dan kolaborasi jarak jauh.
+                **Rekomendasi Tindakan:** Jadikan individu ini sebagai percontohan (*Role Model*) tata kelola kolaborasi jarak jauh di fakultas/unit kerjanya.
                 """)
