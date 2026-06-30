@@ -61,7 +61,7 @@ def load_and_preprocess_data():
             else:
                 return "Pasif (Akses >90 Hari Lalu)"
                 
-        df['Tingkat_Aktivitas_Resensi'] = df.apply(golongkan_aktivitas, axis=1)
+        df['Tingkat_Aktivitas_Recency'] = df.apply(golongkan_aktivitas, axis=1)
         
         # Penanganan Nama untuk Papan Peringkat Individu
         if 'Nama' in df.columns:
