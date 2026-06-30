@@ -14,7 +14,7 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Tema warna kustom universitas
+# Tema warna kustom
 CUSTOM_COLORS = ['#1E88E5', '#FFC107', '#004D40', '#D81B60']
 
 # ==========================================
@@ -26,20 +26,20 @@ def load_and_preprocess_data():
     staff_file = 'staff juni.csv'
     
     if not os.path.exists(mhs_file) or not os.path.exists(staff_file):
-        return None, None
+        return None, None, None
         
     df_mhs = pd.read_csv(mhs_file)
     df_staff = pd.read_csv(staff_file)
     
     def proses_metrik_dan_resensi(df):
-        # 1. Konversi Durasi dari Detik ke Menit
-        df['Audio Duration (Menit)'] = df['Audio Duration In Seconds'] / 60
-        df['Video Duration (Menit)'] = df['Video Duration In Seconds'] / 60
-        df['Screen Share (Menit)'] = df['Screen Share Duration In Seconds'] / 60
-        df['Total_Duration (Menit)'] = (
-            df['Audio Duration (Menit)'] + 
-            df['Video Duration (Menit)'] + 
-            df['Screen Share (Menit)']
+        # 1. Konversi Durasi dari Detik ke JAM (Hours)
+        df['Audio Duration (Jam)'] = df['Audio Duration In Seconds'] / 3600
+        df['Video Duration (Jam)'] = df['Video Duration In Seconds'] / 3600
+        df['Screen Share (Jam)'] = df['Screen Share Duration In Seconds'] / 3600
+        df['Total_Duration (Jam)'] = (
+            df['Audio Duration (Jam)'] + 
+            df['Video Duration (Jam)'] + 
+            df['Screen Share (Jam)']
         )
         
         # 2. Parsing Tanggal untuk Analisis Resensi Aktivitas
@@ -71,22 +71,28 @@ def load_and_preprocess_data():
             
         return df
 
-    # Proses masing-masing dataframe tanpa menghapus data kosong agar retensi terbaca sempurna
+    # Proses Mahasiswa
     df_mhs = proses_metrik_dan_resensi(df_mhs)
     df_mhs.insert(0, 'User ID', ['MHS_' + str(i).zfill(5) for i in range(1, len(df_mhs) + 1)])
     
+    # Proses Staff & Pemisahan Dosen dan Tendik
     df_staff['Role'] = df_staff['Role'].fillna('Tendik').replace({'tendik': 'Tendik', 'dosen': 'Dosen'})
     df_staff = proses_metrik_dan_resensi(df_staff)
-    df_staff.insert(0, 'User ID', ['STAFF_' + str(i).zfill(4) for i in range(1, len(df_staff) + 1)])
     
-    return df_mhs, df_staff
+    df_dosen = df_staff[df_staff['Role'] == 'Dosen'].copy()
+    df_dosen.insert(0, 'User ID', ['DSN_' + str(i).zfill(4) for i in range(1, len(df_dosen) + 1)])
+    
+    df_tendik = df_staff[df_staff['Role'] == 'Tendik'].copy()
+    df_tendik.insert(0, 'User ID', ['TDK_' + str(i).zfill(4) for i in range(1, len(df_tendik) + 1)])
+    
+    return df_mhs, df_dosen, df_tendik
 
 # ==========================================
-# PEMBACAAN DATA UTAMA
+# PEMBACAAN DATA UTAMA & UI
 # ==========================================
-df_mhs, df_staff = load_and_preprocess_data()
+df_mhs, df_dosen, df_tendik = load_and_preprocess_data()
 
-if df_mhs is None or df_staff is None:
+if df_mhs is None or df_dosen is None or df_tendik is None:
     st.title("📊 Analisis Aktivitas Penggunaan Microsoft Teams")
     st.error("⚠️ File `mhs juni.csv` dan/atau `staff juni.csv` tidak ditemukan di direktori aplikasi.")
 else:
@@ -95,12 +101,15 @@ else:
     st.markdown("### Laporan Periode Akumulasi 180 Hari (6 Bulan) | UIN Syarif Hidayatullah Jakarta")
     st.markdown("---")
     
-    # Navigasi Tiga Tab Utama
-    tab1, tab2, tab3 = st.tabs([
-        "📝 Ringkasan Informasi", 
+    # Navigasi Empat Tab Utama
+    tab1, tab2, tab3, tab4 = st.tabs([
+        "📝 Ringkasan", 
         "🎓 EDA Mahasiswa", 
-        "💼 EDA Dosen dan Tendik"
+        "👨‍🏫 EDA Dosen",
+        "💼 EDA Tendik"
     ])
+    
+    status_order = ["Sangat Aktif (Akses 0-7 Hari Lalu)", "Aktif (Akses 8-30 Hari Lalu)", "Cukup Aktif (Akses 31-90 Hari Lalu)", "Pasif (Akses >90 Hari Lalu)", "Tidak Aktif (Dalam 180 Hari)"]
     
     # ----------------------------------------
     # TAB 1: RINGKASAN INFORMASI
@@ -113,41 +122,25 @@ else:
         </div>
         """, unsafe_allow_html=True)
         
-        # Metrik Utama
         col1, col2, col3 = st.columns(3)
-        total_mhs_lisensi = len(df_mhs)
-        total_dosen_lisensi = len(df_staff[df_staff['Role'] == 'Dosen'])
-        total_tendik_lisensi = len(df_staff[df_staff['Role'] == 'Tendik'])
-        
-        col1.metric("Total Lisensi Mahasiswa Terdata", f"{total_mhs_lisensi:,}".replace(',', '.'))
-        col2.metric("Total Lisensi Dosen Terdata", f"{total_dosen_lisensi:,}".replace(',', '.'))
-        col3.metric("Total Lisensi Tendik Terdata", f"{total_tendik_lisensi:,}".replace(',', '.'))
+        col1.metric("Total Lisensi Mahasiswa Terdata", f"{len(df_mhs):,}".replace(',', '.'))
+        col2.metric("Total Lisensi Dosen Terdata", f"{len(df_dosen):,}".replace(',', '.'))
+        col3.metric("Total Lisensi Tendik Terdata", f"{len(df_tendik):,}".replace(',', '.'))
         
         st.markdown("---")
         
-        # Grafik Perbandingan Makro Kontribusi Durasi
-        st.markdown("### 📊 Profil Rata-rata Beban Interaksi Digital")
-        col_prof1, col_prof2 = st.columns(2)
+        st.markdown("### 📊 Profil Rata-rata Beban Interaksi Digital (Satuan Jam)")
+        col_prof1, col_prof2, col_prof3 = st.columns(3)
         
         with col_prof1:
-            st.markdown("#### 🎓 Rata-rata Penggunaan Fitur oleh Mahasiswa")
-            st.info(f"🎙️ Total Audio: **{df_mhs['Audio Duration (Menit)'].mean():.1f}** Menit / User\n\n📹 Total Video: **{df_mhs['Video Duration (Menit)'].mean():.1f}** Menit / User\n\n💻 Total Berbagi Layar: **{df_mhs['Screen Share (Menit)'].mean():.1f}** Menit / User")
-            st.caption("**Interpretasi Komparatif:** Aktivitas mahasiswa didominasi secara mutlak oleh komunikasi suara (*Audio*) dan visualisasi materi (*Screen Share*). Hal ini mencerminkan karakteristik kelas *hybrid* yang bersifat asimetris di mana mahasiswa lebih banyak memosisikan diri sebagai audiens penerima informasi.")
-            
+            st.markdown("#### 🎓 Mahasiswa")
+            st.info(f"🎙️ Audio: **{df_mhs['Audio Duration (Jam)'].mean():.2f} Jam**\n\n📹 Video: **{df_mhs['Video Duration (Jam)'].mean():.2f} Jam**\n\n💻 Screen Share: **{df_mhs['Screen Share (Jam)'].mean():.2f} Jam**")
         with col_prof2:
-            st.markdown("#### 💼 Rata-rata Penggunaan Fitur oleh Dosen & Tendik")
-            st.success(f"🎙️ Total Audio: **{df_staff['Audio Duration (Menit)'].mean():.1f}** Menit / User\n\n📹 Total Video: **{df_staff['Video Duration (Menit)'].mean():.1f}** Menit / User\n\n💻 Total Berbagi Layar: **{df_staff['Screen Share (Menit)'].mean():.1f}** Menit / User")
-            st.caption("**Interpretasi Komparatif:** Profil *Staff* menunjukkan intensitas durasi interaksi yang jauh lebih tinggi di semua sektor fitur dibandingkan mahasiswa. Hal ini wajar mengingat kedudukan Dosen dan Tendik sebagai fasilitator utama pertemuan kelas, rapat koordinasi tingkat birokrasi, dan penyelenggara layanan administratif harian.")
-
-        st.markdown("---")
-        st.markdown("### 📋 Pratonton Sampel Data (Identitas Disamarkan)")
-        col_pre1, col_pre2 = st.columns(2)
-        with col_pre1:
-            st.markdown("**Sampel Log Mahasiswa**")
-            st.dataframe(df_mhs[['User ID', 'Fakultas', 'Prodi', 'Meeting Count', 'Total_Duration (Menit)', 'Tingkat_Aktivitas_Recency']].head(5), use_container_width=True, hide_index=True)
-        with col_pre2:
-            st.markdown("**Sampel Log Dosen & Tendik**")
-            st.dataframe(df_staff[['User ID', 'Role', 'Unit Kerja', 'Meeting Count', 'Total_Duration (Menit)', 'Tingkat_Aktivitas_Recency']].head(5), use_container_width=True, hide_index=True)
+            st.markdown("#### 👨‍🏫 Dosen")
+            st.success(f"🎙️ Audio: **{df_dosen['Audio Duration (Jam)'].mean():.2f} Jam**\n\n📹 Video: **{df_dosen['Video Duration (Jam)'].mean():.2f} Jam**\n\n💻 Screen Share: **{df_dosen['Screen Share (Jam)'].mean():.2f} Jam**")
+        with col_prof3:
+            st.markdown("#### 💼 Tendik")
+            st.warning(f"🎙️ Audio: **{df_tendik['Audio Duration (Jam)'].mean():.2f} Jam**\n\n📹 Video: **{df_tendik['Video Duration (Jam)'].mean():.2f} Jam**\n\n💻 Screen Share: **{df_tendik['Screen Share (Jam)'].mean():.2f} Jam**")
 
     # ----------------------------------------
     # TAB 2: EDA MAHASISWA
@@ -155,121 +148,184 @@ else:
     with tab2:
         st.markdown("""
         <div style="background-color:#1E88E5;padding:20px;border-radius:10px;margin-bottom:20px">
-            <h2 style="color:white;margin:0">🎓 EXPLORATORY DATA ANALYSIS (MAHASISWA)</h2>
-            <p style="color:#E3F2FD;margin:5px 0 0 0">Analisis Perilaku Digital, Retensi Resensi Akses, dan Pemetaan Sektoral Fakultas</p>
+            <h2 style="color:white;margin:0">🎓 EXPLORATORY DATA ANALYSIS: MAHASISWA</h2>
+            <p style="color:#E3F2FD;margin:5px 0 0 0">Analisis Perilaku Digital, Retensi Akses, dan Kinerja Berdasarkan Fakultas</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # 1. ANALISIS RESENSI AKSES TERAKHIR (TINGKAT AKTIVITAS)
-        st.markdown("### 🔄 Distribusi Tingkat Aktivitas Berdasarkan Akses Terakhir (Resensi)")
+        # Filter MHS
+        list_fakultas = ["Semua Fakultas"] + sorted(df_mhs['Fakultas'].dropna().unique().tolist())
+        pilihan_fakultas = st.selectbox("🔍 Filter Fakultas (Mahasiswa):", list_fakultas, key="filter_mhs")
+        df_mhs_eda = df_mhs.copy() if pilihan_fakultas == "Semua Fakultas" else df_mhs[df_mhs['Fakultas'] == pilihan_fakultas].copy()
         
-        status_order = ["Sangat Aktif (Akses 0-7 Hari Lalu)", "Aktif (Akses 8-30 Hari Lalu)", "Cukup Aktif (Akses 31-90 Hari Lalu)", "Pasif (Akses >90 Hari Lalu)", "Tidak Aktif (Dalam 180 Hari)"]
-        mhs_status = df_mhs['Tingkat_Aktivitas_Recency'].value_counts().reindex(status_order, fill_value=0).reset_index()
-        mhs_status.columns = ['Tingkat Aktivitas Resensi', 'Jumlah Pengguna']
-        
-        fig_mhs_rec = px.bar(mhs_status, x='Tingkat Aktivitas Resensi', y='Jumlah Pengguna', text='Jumlah Pengguna',
-                             color='Tingkat Aktivitas Resensi', color_discrete_sequence=['#4CAF50', '#8BC34A', '#FFC107', '#FF9800', '#F44336'])
-        fig_mhs_rec.update_layout(showlegend=False)
-        st.plotly_chart(fig_mhs_rec, use_container_width=True)
-        
-        with st.expander("💡 Lihat Interpretasi & Kesimpulan Analisis Retensi Mahasiswa", expanded=True):
-            st.markdown("""
-            * **Interpretasi Grafik:** Grafik resensi di atas membagi total populasi mahasiswa ke dalam 5 spektrum aktivitas berdasarkan seberapa dekat jarak hari akses terakhir mereka dari tanggal pembaruan sistem. Kelompok *Sangat Aktif* dan *Aktif* menggambarkan porsi mahasiswa yang terikat langsung dalam proses pembelajaran digital kontemporer.
-            * **Kesimpulan Strategis:** Volume pengguna yang menumpuk pada klaster *Tidak Aktif (Dalam 180 Hari)* memberikan indikasi awal penting bagi manajemen IT. Kelompok ini mewakili mahasiswa yang memiliki akun resmi namun tidak menyentuh *platform* MS Teams sama sekali selama satu semester penuh. Manajemen dapat memanfaatkan data ini untuk melakukan efisiensi atau pembersihan alokasi lisensi yang tidak produktif.
-            """)
-            
         st.markdown("---")
         
-        # 2. PERINGKAT TOP 10 FAKULTAS TERGERAK (AGREGAT)
-        st.markdown("### 🏆 Top 10 Fakultas Teratas Berdasarkan Metrik Penggunaan (Agregat Periode 180 Hari)")
-        
-        df_fakultas_grp = df_mhs.groupby('Fakultas')[['Meeting Count', 'Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)']].sum().reset_index()
-        
-        tab_m_meet, tab_m_aud, tab_m_vid, tab_m_scr = st.tabs([
-            "📊 Total Pertemuan Rapat", 
-            "🎙️ Total Durasi Audio", 
-            "📹 Total Durasi Video", 
-            "💻 Total Durasi Berbagi Layar"
-        ])
-        
-        with tab_m_meet:
-            top_10 = df_fakultas_grp.nlargest(10, 'Meeting Count').sort_values('Meeting Count', ascending=True)
-            st.plotly_chart(px.bar(top_10, x='Meeting Count', y='Fakultas', orientation='h', text_auto='.0f', title='Top 10 Fakultas: Akumulasi Frekuensi Kelas Virtual', color_discrete_sequence=['#004D40']), use_container_width=True)
-            st.info("**Interpretasi & Kesimpulan:** Sektor ini menampilkan total intensitas pembukaan kelas virtual daring. Fakultas peringkat teratas menunjukkan kesiapan implementasi kurikulum berbasis integrasi teknologi informasi (*Smart Campus*) tertinggi di lingkungan mahasiswa.")
+        # Visualisasi MHS
+        col_m1, col_m2 = st.columns(2)
+        with col_m1:
+            mhs_status = df_mhs_eda['Tingkat_Aktivitas_Recency'].value_counts().reindex(status_order, fill_value=0).reset_index()
+            mhs_status.columns = ['Tingkat Aktivitas Resensi', 'Jumlah']
+            fig_mhs_rec = px.bar(mhs_status, x='Tingkat Aktivitas Resensi', y='Jumlah', text='Jumlah', title="Distribusi Status Akses (Resensi)", color='Tingkat Aktivitas Resensi', color_discrete_sequence=['#4CAF50', '#8BC34A', '#FFC107', '#FF9800', '#F44336'])
+            fig_mhs_rec.update_layout(showlegend=False)
+            st.plotly_chart(fig_mhs_rec, use_container_width=True)
+            st.caption("**Interpretasi:** Melihat seberapa banyak mahasiswa yang benar-benar menggunakan Teams pada kurun waktu terdekat untuk evaluasi lisensi IT.")
             
-        with tab_m_aud:
-            top_10 = df_fakultas_grp.nlargest(10, 'Audio Duration (Menit)').sort_values('Audio Duration (Menit)', ascending=True)
-            st.plotly_chart(px.bar(top_10, x='Audio Duration (Menit)', y='Fakultas', orientation='h', text_auto='.0f', title='Top 10 Fakultas: Akumulasi Durasi Audio (Menit)', color_discrete_sequence=['#1E88E5']), use_container_width=True)
-            st.info("**Interpretasi & Kesimpulan:** Peringkat durasi audio mencerminkan total beban diskusi verbal harian. Fakultas yang memimpin di sektor ini mengindikasikan adanya budaya interaksi kelas interaktif berbasis suara yang masif sepanjang periode studi berlangsung.")
+        with col_m2:
+            avg_mhs = pd.DataFrame({
+                'Fitur': ['Audio', 'Video', 'Screen Share'],
+                'Rata-rata (Jam)': [df_mhs_eda['Audio Duration (Jam)'].mean(), df_mhs_eda['Video Duration (Jam)'].mean(), df_mhs_eda['Screen Share (Jam)'].mean()]
+            })
+            fig_avg_mhs = px.bar(avg_mhs, x='Fitur', y='Rata-rata (Jam)', text='Rata-rata (Jam)', title="Rata-rata Durasi Fitur per Mahasiswa", color='Fitur', color_discrete_sequence=['#1E88E5', '#D81B60', '#FFC107'])
+            fig_avg_mhs.update_traces(texttemplate='%{text:.2f} Jam')
+            fig_avg_mhs.update_layout(showlegend=False)
+            st.plotly_chart(fig_avg_mhs, use_container_width=True)
             
-        with tab_m_vid:
-            top_10 = df_fakultas_grp.nlargest(10, 'Video Duration (Menit)').sort_values('Video Duration (Menit)', ascending=True)
-            st.plotly_chart(px.bar(top_10, x='Video Duration (Menit)', y='Fakultas', orientation='h', text_auto='.0f', title='Top 10 Fakultas: Akumulasi Durasi Kamera Menyala (Menit)', color_discrete_sequence=['#D81B60']), use_container_width=True)
-            st.info("**Interpretasi & Kesimpulan:** Durasi video mengukur kepatuhan dan formalitas interaksi visual tatap muka virtual. Tingginya angka di fakultas tertentu menandakan adanya kebijakan penegakan kedisiplinan menyalakan kamera (*on-cam*) yang berjalan efektif.")
+        st.markdown("---")
+        st.markdown("### 🏛️ Peringkat Fakultas (Agregat Total)")
+        df_fakultas_grp = df_mhs_eda.groupby('Fakultas')[['Meeting Count', 'Audio Duration (Jam)', 'Video Duration (Jam)', 'Screen Share (Jam)']].sum().reset_index()
+        
+        t1, t2, t3, t4 = st.tabs(["📊 Pertemuan (Rapat)", "🎙️ Durasi Audio", "📹 Durasi Video", "💻 Durasi Screen Share"])
+        with t1:
+            st.plotly_chart(px.bar(df_fakultas_grp.nlargest(10, 'Meeting Count').sort_values('Meeting Count'), x='Meeting Count', y='Fakultas', orientation='h', text_auto='.0f', title='Top 10 Fakultas (Akumulasi Meeting)'), use_container_width=True)
+        with t2:
+            st.plotly_chart(px.bar(df_fakultas_grp.nlargest(10, 'Audio Duration (Jam)').sort_values('Audio Duration (Jam)'), x='Audio Duration (Jam)', y='Fakultas', orientation='h', text_auto='.1f', title='Top 10 Fakultas (Total Jam Audio)'), use_container_width=True)
+        with t3:
+            st.plotly_chart(px.bar(df_fakultas_grp.nlargest(10, 'Video Duration (Jam)').sort_values('Video Duration (Jam)'), x='Video Duration (Jam)', y='Fakultas', orientation='h', text_auto='.1f', title='Top 10 Fakultas (Total Jam Video)'), use_container_width=True)
+        with t4:
+            st.plotly_chart(px.bar(df_fakultas_grp.nlargest(10, 'Screen Share (Jam)').sort_values('Screen Share (Jam)'), x='Screen Share (Jam)', y='Fakultas', orientation='h', text_auto='.1f', title='Top 10 Fakultas (Total Jam Screen Share)'), use_container_width=True)
             
-        with tab_m_scr:
-            top_10 = df_fakultas_grp.nlargest(10, 'Screen Share (Menit)').sort_values('Screen Share (Menit)', ascending=True)
-            st.plotly_chart(px.bar(top_10, x='Screen Share (Menit)', y='Fakultas', orientation='h', text_auto='.0f', title='Top 10 Fakultas: Akumulasi Durasi Presentasi Layar (Menit)', color_discrete_sequence=['#FFC107']), use_container_width=True)
-            st.info("**Interpretasi & Kesimpulan:** Grafik *Screen Share* ini menangkap indikator pemaparan materi kerja digital (seperti pengerjaan tugas kelompok, seminar, atau bedah studi kasus ilmiah) yang digerakkan langsung oleh inisiatif mahasiswa.")
+        st.markdown("---")
+        st.markdown("### 🏆 Top 10 Individu Mahasiswa Teraktif")
+        t_i1, t_i2, t_i3, t_i4 = st.tabs(["📊 Frekuensi Rapat", "🎙️ Audio Terlama", "📹 Video Terlama", "💻 Screen Share Terlama"])
+        with t_i1:
+            st.plotly_chart(px.bar(df_mhs_eda.nlargest(10, 'Meeting Count').sort_values('Meeting Count'), x='Meeting Count', y='Nama_Tampil', orientation='h', text_auto='.0f', title='Top 10 Mahasiswa: Frekuensi Kelas Virtual Terbanyak'), use_container_width=True)
+        with t_i2:
+            st.plotly_chart(px.bar(df_mhs_eda.nlargest(10, 'Audio Duration (Jam)').sort_values('Audio Duration (Jam)'), x='Audio Duration (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Mahasiswa: Durasi Audio (Jam) Terlama'), use_container_width=True)
+        with t_i3:
+            st.plotly_chart(px.bar(df_mhs_eda.nlargest(10, 'Video Duration (Jam)').sort_values('Video Duration (Jam)'), x='Video Duration (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Mahasiswa: Durasi Video (Jam) Terlama'), use_container_width=True)
+        with t_i4:
+            st.plotly_chart(px.bar(df_mhs_eda.nlargest(10, 'Screen Share (Jam)').sort_values('Screen Share (Jam)'), x='Screen Share (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Mahasiswa: Durasi Screen Share (Jam) Terlama'), use_container_width=True)
 
     # ----------------------------------------
-    # TAB 3: EDA DOSEN DAN TENDIK
+    # TAB 3: EDA DOSEN
     # ----------------------------------------
     with tab3:
         st.markdown("""
         <div style="background-color:#FF8F00;padding:20px;border-radius:10px;margin-bottom:20px">
-            <h2 style="color:white;margin:0">💼 EXPLORATORY DATA ANALYSIS (DOSEN & TENDIK)</h2>
-            <p style="color:#FFF8E1;margin:5px 0 0 0">Analisis Pola Komunikasi Birokrasi, Resensi Akses Instansi, dan Distribusi Beban Kerja Sektoral Unit Kerja</p>
+            <h2 style="color:white;margin:0">👨‍🏫 EXPLORATORY DATA ANALYSIS: DOSEN</h2>
+            <p style="color:#FFF8E1;margin:5px 0 0 0">Analisis Kinerja Pengajaran, Konsistensi Akses Dosen, dan Distribusi Beban Unit Kerja</p>
         </div>
         """, unsafe_allow_html=True)
         
-        # 1. ANALISIS RESENSI AKSES TERAKHIR STAFF (TINGKAT AKTIVITAS)
-        st.markdown("### 🔄 Distribusi Tingkat Aktivitas Berdasarkan Akses Terakhir (Resensi Staff)")
+        list_unit_dosen = ["Semua Unit Kerja"] + sorted(df_dosen['Unit Kerja'].dropna().unique().tolist())
+        pilihan_unit_dosen = st.selectbox("🔍 Filter Unit Kerja (Dosen):", list_unit_dosen, key="filter_dosen")
+        df_dosen_eda = df_dosen.copy() if pilihan_unit_dosen == "Semua Unit Kerja" else df_dosen[df_dosen['Unit Kerja'] == pilihan_unit_dosen].copy()
         
-        staff_status = df_staff['Tingkat_Aktivitas_Recency'].value_counts().reindex(status_order, fill_value=0).reset_index()
-        staff_status.columns = ['Tingkat Aktivitas Resensi', 'Jumlah Pengguna']
-        
-        fig_stf_rec = px.bar(staff_status, x='Tingkat Aktivitas Resensi', y='Jumlah Pengguna', text='Jumlah Pengguna',
-                             color='Tingkat Aktivitas Resensi', color_discrete_sequence=['#004D40', '#00796B', '#80CBC4', '#FFB74D', '#E53935'])
-        fig_stf_rec.update_layout(showlegend=False)
-        st.plotly_chart(fig_stf_rec, use_container_width=True)
-        
-        with st.expander("💡 Lihat Interpretasi & Kesimpulan Analisis Retensi Staff / Pegawai", expanded=True):
-            st.markdown("""
-            * **Interpretasi Grafik:** Visualisasi ini memetakan konsistensi dosen dan tenaga kependidikan dalam memanfaatkan ruang kolaborasi korporat institusi. Berbeda dengan mahasiswa, kelompok pegawai idealnya terkonsentrasi penuh pada zona *Sangat Aktif* dan *Aktif* untuk menjaga kelancaran koordinasi administrasi internal kampus.
-            * **Kesimpulan Strategis:** Jika ditemukan lonjakan angka pegawai pada kategori *Pasif* atau *Tidak Aktif*, hal tersebut mengindikasikan adanya hambatan adopsi teknologi birokrasi digital atau kecenderungan unit kerja terkait yang kembali beralih menggunakan aplikasi komunikasi non-resmi instansi (seperti WhatsApp grup personal). Ini dapat menjadi acuan bagi bagian kepegawaian untuk menyelenggarakan pelatihan tata kerja digital lanjutan.
-            """)
-            
         st.markdown("---")
         
-        # 2. PERINGKAT TOP 10 UNIT KERJA TERGERAK (AGREGAT)
-        st.markdown("### 🏆 Top 10 Unit Kerja Teratas Berdasarkan Metrik Penggunaan (Agregat Periode 180 Hari)")
-        
-        df_unit_grp = df_staff.groupby('Unit Kerja')[['Meeting Count', 'Audio Duration (Menit)', 'Video Duration (Menit)', 'Screen Share (Menit)']].sum().reset_index()
-        
-        tab_s_meet, tab_s_aud, tab_s_vid, tab_s_scr = st.tabs([
-            "📊 Total Pertemuan Rapat", 
-            "🎙️ Total Durasi Audio", 
-            "📹 Total Durasi Video", 
-            "💻 Total Durasi Berbagi Layar"
-        ])
-        
-        with tab_s_meet:
-            top_10_u = df_unit_grp.nlargest(10, 'Meeting Count').sort_values('Meeting Count', ascending=True)
-            st.plotly_chart(px.bar(top_10_u, x='Meeting Count', y='Unit Kerja', orientation='h', text_auto='.0f', title='Top 10 Unit Kerja: Akumulasi Frekuensi Koordinasi Virtual', color_discrete_sequence=['#00796B']), use_container_width=True)
-            st.info("**Interpretasi & Kesimpulan:** Data ini menyoroti Unit Kerja (Fakultas/Lembaga/Pusat) yang paling intensif menginisiasi pertemuan dinas secara daring. Peringkat teratas mendefinisikan unit yang memiliki dinamika koordinasi manajerial berbasis virtual paling progresif.")
+        col_d1, col_d2 = st.columns(2)
+        with col_d1:
+            dsn_status = df_dosen_eda['Tingkat_Aktivitas_Recency'].value_counts().reindex(status_order, fill_value=0).reset_index()
+            dsn_status.columns = ['Tingkat Aktivitas Resensi', 'Jumlah']
+            fig_dsn_rec = px.bar(dsn_status, x='Tingkat Aktivitas Resensi', y='Jumlah', text='Jumlah', title="Distribusi Status Akses Dosen (Resensi)", color='Tingkat Aktivitas Resensi', color_discrete_sequence=['#004D40', '#00796B', '#80CBC4', '#FFB74D', '#E53935'])
+            fig_dsn_rec.update_layout(showlegend=False)
+            st.plotly_chart(fig_dsn_rec, use_container_width=True)
+            st.caption("**Interpretasi:** Menunjukkan konsistensi dosen dalam memanfaatkan Teams untuk pembelajaran. Angka 'Tidak Aktif' yang tinggi dapat menjadi indikasi perlunya pelatihan platform terpadu.")
             
-        with tab_s_aud:
-            top_10_u = df_unit_grp.nlargest(10, 'Audio Duration (Menit)').sort_values('Audio Duration (Menit)', ascending=True)
-            st.plotly_chart(px.bar(top_10_u, x='Audio Duration (Menit)', y='Unit Kerja', orientation='h', text_auto='.0f', title='Top 10 Unit Kerja: Akumulasi Durasi Audio (Menit)', color_discrete_sequence=['#1565C0']), use_container_width=True)
-            st.info("**Interpretasi & Kesimpulan:** Total akumulasi durasi audio mengindikasikan waktu yang dihabiskan para pimpinan, dosen, dan staf administrasi unit kerja dalam berdiskusi merumuskan kebijakan operasional di ruang rapat virtual.")
+        with col_d2:
+            avg_dsn = pd.DataFrame({
+                'Fitur': ['Audio', 'Video', 'Screen Share'],
+                'Rata-rata (Jam)': [df_dosen_eda['Audio Duration (Jam)'].mean(), df_dosen_eda['Video Duration (Jam)'].mean(), df_dosen_eda['Screen Share (Jam)'].mean()]
+            })
+            fig_avg_dsn = px.bar(avg_dsn, x='Fitur', y='Rata-rata (Jam)', text='Rata-rata (Jam)', title="Rata-rata Durasi Fitur per Dosen", color='Fitur', color_discrete_sequence=['#1E88E5', '#D81B60', '#FFC107'])
+            fig_avg_dsn.update_traces(texttemplate='%{text:.2f} Jam')
+            fig_avg_dsn.update_layout(showlegend=False)
+            st.plotly_chart(fig_avg_dsn, use_container_width=True)
             
-        with tab_s_vid:
-            top_10_u = df_unit_grp.nlargest(10, 'Video Duration (Menit)').sort_values('Video Duration (Menit)', ascending=True)
-            st.plotly_chart(px.bar(top_10_u, x='Video Duration (Menit)', y='Unit Kerja', orientation='h', text_auto='.0f', title='Top 10 Unit Kerja: Akumulasi Durasi Kamera Menyala (Menit)', color_discrete_sequence=['#C2185B']), use_container_width=True)
-            st.info("**Interpretasi & Kesimpulan:** Durasi interaksi visual mencerminkan transparansi dan keterikatan profesional pegawai dalam bekerja secara *remote* atau *hybrid*. Unit kerja dengan peringkat tinggi menunjukkan etos kedisiplinan rapat virtual yang sangat baik.")
+        st.markdown("---")
+        st.markdown("### 🏛️ Peringkat Unit Kerja Dosen (Agregat Total)")
+        df_dsn_grp = df_dosen_eda.groupby('Unit Kerja')[['Meeting Count', 'Audio Duration (Jam)', 'Video Duration (Jam)', 'Screen Share (Jam)']].sum().reset_index()
+        
+        t_d1, t_d2, t_d3, t_d4 = st.tabs(["📊 Pertemuan (Rapat)", "🎙️ Durasi Audio", "📹 Durasi Video", "💻 Durasi Screen Share"])
+        with t_d1:
+            st.plotly_chart(px.bar(df_dsn_grp.nlargest(10, 'Meeting Count').sort_values('Meeting Count'), x='Meeting Count', y='Unit Kerja', orientation='h', text_auto='.0f', title='Top 10 Unit (Akumulasi Meeting Dosen)'), use_container_width=True)
+        with t_d2:
+            st.plotly_chart(px.bar(df_dsn_grp.nlargest(10, 'Audio Duration (Jam)').sort_values('Audio Duration (Jam)'), x='Audio Duration (Jam)', y='Unit Kerja', orientation='h', text_auto='.1f', title='Top 10 Unit (Total Jam Audio Dosen)'), use_container_width=True)
+        with t_d3:
+            st.plotly_chart(px.bar(df_dsn_grp.nlargest(10, 'Video Duration (Jam)').sort_values('Video Duration (Jam)'), x='Video Duration (Jam)', y='Unit Kerja', orientation='h', text_auto='.1f', title='Top 10 Unit (Total Jam Video Dosen)'), use_container_width=True)
+        with t_d4:
+            st.plotly_chart(px.bar(df_dsn_grp.nlargest(10, 'Screen Share (Jam)').sort_values('Screen Share (Jam)'), x='Screen Share (Jam)', y='Unit Kerja', orientation='h', text_auto='.1f', title='Top 10 Unit (Total Jam Screen Share Dosen)'), use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### 🏆 Top 10 Individu Dosen Teraktif")
+        td_i1, td_i2, td_i3, td_i4 = st.tabs(["📊 Frekuensi Mengajar/Rapat", "🎙️ Audio Terlama", "📹 Video Terlama", "💻 Screen Share Terlama"])
+        with td_i1:
+            st.plotly_chart(px.bar(df_dosen_eda.nlargest(10, 'Meeting Count').sort_values('Meeting Count'), x='Meeting Count', y='Nama_Tampil', orientation='h', text_auto='.0f', title='Top 10 Dosen: Frekuensi Kelas/Rapat Terbanyak'), use_container_width=True)
+        with td_i2:
+            st.plotly_chart(px.bar(df_dosen_eda.nlargest(10, 'Audio Duration (Jam)').sort_values('Audio Duration (Jam)'), x='Audio Duration (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Dosen: Durasi Audio (Jam) Terlama'), use_container_width=True)
+        with td_i3:
+            st.plotly_chart(px.bar(df_dosen_eda.nlargest(10, 'Video Duration (Jam)').sort_values('Video Duration (Jam)'), x='Video Duration (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Dosen: Durasi Video (Jam) Terlama'), use_container_width=True)
+        with td_i4:
+            st.plotly_chart(px.bar(df_dosen_eda.nlargest(10, 'Screen Share (Jam)').sort_values('Screen Share (Jam)'), x='Screen Share (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Dosen: Durasi Screen Share (Jam) Terlama'), use_container_width=True)
+
+    # ----------------------------------------
+    # TAB 4: EDA TENDIK
+    # ----------------------------------------
+    with tab4:
+        st.markdown("""
+        <div style="background-color:#6A1B9A;padding:20px;border-radius:10px;margin-bottom:20px">
+            <h2 style="color:white;margin:0">💼 EXPLORATORY DATA ANALYSIS: TENDIK</h2>
+            <p style="color:#F3E5F5;margin:5px 0 0 0">Analisis Beban Koordinasi Administratif dan Resensi Tenaga Kependidikan</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        list_unit_tendik = ["Semua Unit Kerja"] + sorted(df_tendik['Unit Kerja'].dropna().unique().tolist())
+        pilihan_unit_tendik = st.selectbox("🔍 Filter Unit Kerja (Tendik):", list_unit_tendik, key="filter_tendik")
+        df_tendik_eda = df_tendik.copy() if pilihan_unit_tendik == "Semua Unit Kerja" else df_tendik[df_tendik['Unit Kerja'] == pilihan_unit_tendik].copy()
+        
+        st.markdown("---")
+        
+        col_t1, col_t2 = st.columns(2)
+        with col_t1:
+            tdk_status = df_tendik_eda['Tingkat_Aktivitas_Recency'].value_counts().reindex(status_order, fill_value=0).reset_index()
+            tdk_status.columns = ['Tingkat Aktivitas Resensi', 'Jumlah']
+            fig_tdk_rec = px.bar(tdk_status, x='Tingkat Aktivitas Resensi', y='Jumlah', text='Jumlah', title="Distribusi Status Akses Tendik (Resensi)", color='Tingkat Aktivitas Resensi', color_discrete_sequence=['#4A148C', '#7B1FA2', '#BA68C8', '#FFB74D', '#E53935'])
+            fig_tdk_rec.update_layout(showlegend=False)
+            st.plotly_chart(fig_tdk_rec, use_container_width=True)
+            st.caption("**Interpretasi:** Mendeteksi unit administrasi/biro yang sangat proaktif berkoordinasi secara virtual. Tendik idealnya menempati zona 'Aktif' untuk menjamin kelancaran layanan institusi.")
             
-        with tab_s_scr:
-            top_10_u = df_unit_grp.nlargest(10, 'Screen Share (Menit)').sort_values('Screen Share (Menit)', ascending=True)
-            st.plotly_chart(px.bar(top_10_u, x='Screen Share (Menit)', y='Unit Kerja', orientation='h', text_auto='.0f', title='Top 10 Unit Kerja: Akumulasi Durasi Presentasi Layar (Menit)', color_discrete_sequence=['#F57C00']), use_container_width=True)
-            st.info("**Interpretasi & Kesimpulan:** Peringkat presentasi layar memetakan tingkat intensitas pemaparan dokumen dinas, sistem aplikasi pangkalan data, laporan keuangan, atau materi kurikulum akademik ilmiah yang dipaparkan secara langsung oleh aparatur unit kerja.")
+        with col_t2:
+            avg_tdk = pd.DataFrame({
+                'Fitur': ['Audio', 'Video', 'Screen Share'],
+                'Rata-rata (Jam)': [df_tendik_eda['Audio Duration (Jam)'].mean(), df_tendik_eda['Video Duration (Jam)'].mean(), df_tendik_eda['Screen Share (Jam)'].mean()]
+            })
+            fig_avg_tdk = px.bar(avg_tdk, x='Fitur', y='Rata-rata (Jam)', text='Rata-rata (Jam)', title="Rata-rata Durasi Fitur per Tendik", color='Fitur', color_discrete_sequence=['#1E88E5', '#D81B60', '#FFC107'])
+            fig_avg_tdk.update_traces(texttemplate='%{text:.2f} Jam')
+            fig_avg_tdk.update_layout(showlegend=False)
+            st.plotly_chart(fig_avg_tdk, use_container_width=True)
+            
+        st.markdown("---")
+        st.markdown("### 🏛️ Peringkat Unit Kerja Tendik (Agregat Total)")
+        df_tdk_grp = df_tendik_eda.groupby('Unit Kerja')[['Meeting Count', 'Audio Duration (Jam)', 'Video Duration (Jam)', 'Screen Share (Jam)']].sum().reset_index()
+        
+        tt_d1, tt_d2, tt_d3, tt_d4 = st.tabs(["📊 Pertemuan (Rapat)", "🎙️ Durasi Audio", "📹 Durasi Video", "💻 Durasi Screen Share"])
+        with tt_d1:
+            st.plotly_chart(px.bar(df_tdk_grp.nlargest(10, 'Meeting Count').sort_values('Meeting Count'), x='Meeting Count', y='Unit Kerja', orientation='h', text_auto='.0f', title='Top 10 Unit (Akumulasi Meeting Tendik)'), use_container_width=True)
+        with tt_d2:
+            st.plotly_chart(px.bar(df_tdk_grp.nlargest(10, 'Audio Duration (Jam)').sort_values('Audio Duration (Jam)'), x='Audio Duration (Jam)', y='Unit Kerja', orientation='h', text_auto='.1f', title='Top 10 Unit (Total Jam Audio Tendik)'), use_container_width=True)
+        with tt_d3:
+            st.plotly_chart(px.bar(df_tdk_grp.nlargest(10, 'Video Duration (Jam)').sort_values('Video Duration (Jam)'), x='Video Duration (Jam)', y='Unit Kerja', orientation='h', text_auto='.1f', title='Top 10 Unit (Total Jam Video Tendik)'), use_container_width=True)
+        with tt_d4:
+            st.plotly_chart(px.bar(df_tdk_grp.nlargest(10, 'Screen Share (Jam)').sort_values('Screen Share (Jam)'), x='Screen Share (Jam)', y='Unit Kerja', orientation='h', text_auto='.1f', title='Top 10 Unit (Total Jam Screen Share Tendik)'), use_container_width=True)
+
+        st.markdown("---")
+        st.markdown("### 🏆 Top 10 Individu Tendik Teraktif")
+        tt_i1, tt_i2, tt_i3, tt_i4 = st.tabs(["📊 Frekuensi Koordinasi", "🎙️ Audio Terlama", "📹 Video Terlama", "💻 Screen Share Terlama"])
+        with tt_i1:
+            st.plotly_chart(px.bar(df_tendik_eda.nlargest(10, 'Meeting Count').sort_values('Meeting Count'), x='Meeting Count', y='Nama_Tampil', orientation='h', text_auto='.0f', title='Top 10 Tendik: Frekuensi Rapat Terbanyak'), use_container_width=True)
+        with tt_i2:
+            st.plotly_chart(px.bar(df_tendik_eda.nlargest(10, 'Audio Duration (Jam)').sort_values('Audio Duration (Jam)'), x='Audio Duration (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Tendik: Durasi Audio (Jam) Terlama'), use_container_width=True)
+        with tt_i3:
+            st.plotly_chart(px.bar(df_tendik_eda.nlargest(10, 'Video Duration (Jam)').sort_values('Video Duration (Jam)'), x='Video Duration (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Tendik: Durasi Video (Jam) Terlama'), use_container_width=True)
+        with tt_i4:
+            st.plotly_chart(px.bar(df_tendik_eda.nlargest(10, 'Screen Share (Jam)').sort_values('Screen Share (Jam)'), x='Screen Share (Jam)', y='Nama_Tampil', orientation='h', text_auto='.1f', title='Top 10 Tendik: Durasi Screen Share (Jam) Terlama'), use_container_width=True)
