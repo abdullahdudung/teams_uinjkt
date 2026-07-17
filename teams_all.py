@@ -157,12 +157,14 @@ else:
     st.markdown("### Laporan & Prediksi Akumulasi 180 Hari | UIN Syarif Hidayatullah Jakarta")
     st.markdown("---")
     
-    # Navigasi Empat Tab Utama
-    tab1, tab2, tab3, tab4 = st.tabs([
+    # =========================================================================
+    # REVISI: Tab Evaluasi Model dan Simulasi Prediksi disembunyikan
+    # =========================================================================
+    tab1, tab2 = st.tabs([
         "📝 Ringkasan", 
-        "📈 Exploratory Data Analysis (EDA Terpadu)", 
-        "🤖 Evaluasi Model", 
-        "🚀 Simulasi Prediksi"
+        "📈 Exploratory Data Analysis (EDA Terpadu)"
+        # "🤖 Evaluasi Model", 
+        # "🚀 Simulasi Prediksi"
     ])
     
     status_order = ["Sangat Aktif (Akses 0-7 Hari Lalu)", "Aktif (Akses 8-30 Hari Lalu)", "Cukup Aktif (Akses 31-90 Hari Lalu)", "Pasif (Akses >90 Hari Lalu)", "Tidak Aktif (Dalam 180 Hari)"]
@@ -200,7 +202,9 @@ else:
             st.warning(f"🎙️ Audio: **{df_tendik['Audio Duration (Jam)'].mean():.2f} Jam**\n\n📹 Video: **{df_tendik['Video Duration (Jam)'].mean():.2f} Jam**\n\n💻 Screen Share: **{df_tendik['Screen Share (Jam)'].mean():.2f} Jam**")
 
     # =========================================================================
-    # FUNGSI HELPER UNTUK RENDER EDA KHUSUS (Korelasi, Boxplot, Scatter)
+    # FUNGSI HELPER UNTUK RENDER EDA KHUSUS
+    # Catatan: Fungsi ini tetap ada secara logika, tetapi pemanggilannya 
+    # di dalam Tab 2 disembunyikan sesuai permintaan.
     # =========================================================================
     def render_eda_lanjutan(df_eda, role_name):
         st.markdown(f"### 🔗 Analisis Korelasi & Statistik Ringkasan ({role_name})")
@@ -325,11 +329,9 @@ else:
         # 4. PAPAN PERINGKAT TOP 10 UNIT KERJA (Khusus Dosen & Tendik Berdasarkan Filter df_eda)
         st.markdown(f"### 🏢 Top 10 Unit Kerja Teraktif ({pilihan_role} - {pilihan_sub})")
         
-        # Memfilter data aktif (df_eda) hanya untuk Dosen dan Tendik yang memiliki Unit Kerja
         df_unit_kerja = df_eda[df_eda['Role'].isin(['Dosen', 'Tendik'])].dropna(subset=['Unit Kerja'])
         
         if not df_unit_kerja.empty:
-            # Menggabungkan total aktivitas berdasarkan Unit Kerja
             unit_grp = df_unit_kerja.groupby('Unit Kerja').agg({
                 'Meeting Count': 'sum',
                 'Audio Duration (Jam)': 'sum',
@@ -337,7 +339,6 @@ else:
                 'Screen Share (Jam)': 'sum'
             }).reset_index()
             
-            # Membuat 4 Tab yang sesuai dengan referensi
             tab_u1, tab_u2, tab_u3, tab_u4 = st.tabs([
                 "📊 Frekuensi Rapat/Kelas", 
                 "🎙️ Audio Terlama", 
@@ -375,108 +376,114 @@ else:
         else:
             st.warning("Data metrik Unit Kerja tidak tersedia untuk kategori filter yang dipilih saat ini (Hanya memproses Dosen & Tendik).")
 
-        st.markdown("---")
-        
-        # 5. RENDER ANALISIS LANJUTAN (Korelasi, Boxplot, 3D Scatter)
-        if len(df_eda) > 0:
-            render_eda_lanjutan(df_eda, f"Kategori: {pilihan_role}")
+        # =========================================================================
+        # REVISI: 5. RENDER ANALISIS LANJUTAN (DISEMBUNYIKAN)
+        # Bagian Korelasi, Boxplot, dan 3D Scatter tidak dieksekusi / di-hide
+        # =========================================================================
+        # if len(df_eda) > 0:
+        #     render_eda_lanjutan(df_eda, f"Kategori: {pilihan_role}")
+
+    # =========================================================================
+    # REVISI: TAB 3 (Evaluasi Model) dan TAB 4 (Simulasi Prediksi) 
+    # TELAH DISEMBUNYIKAN SEPENUHNYA DARI KODE DAN ANTARMUKA
+    # =========================================================================
+    
+    # ----------------------------------------
+    # TAB 3: EVALUASI MODEL (DISEMBUNYIKAN)
+    # ----------------------------------------
+    # with tab3:
+    #     st.markdown("""
+    #     <div style="background-color:#7B1FA2;padding:20px;border-radius:10px;margin-bottom:20px">
+    #         <h2 style="color:white;margin:0">🤖 MENU EVALUASI DAN PERFORMA MODEL AI</h2>
+    #         <p style="color:#F3E5F5;margin:5px 0 0 0">Analisis Perbandingan Skor Akurasi Algoritma untuk Penggolongan Aktivitas (Semua Pengguna)</p>
+    #     </div>
+    #     """, unsafe_allow_html=True)
+    #     
+    #     col_mod1, col_mod2 = st.columns([1.5, 1])
+    #     with col_mod1:
+    #         df_eval = pd.DataFrame({'Model': eval_dict['Model'], 'Accuracy': eval_dict['Accuracy']})
+    #         df_eval = df_eval.sort_values(by='Accuracy', ascending=True)
+    #         
+    #         fig_acc = px.bar(df_eval, x='Accuracy', y='Model', orientation='h',
+    #                          text=[f"{x:.2%}" for x in df_eval['Accuracy']],
+    #                          color='Model', color_discrete_sequence=['#FF9800', '#2196F3', '#4CAF50'],
+    #                          title="Tingkat Akurasi Prediksi Berdasarkan Algoritma")
+    #         fig_acc.update_layout(xaxis_range=[0, 1.1], showlegend=False)
+    #         st.plotly_chart(fig_acc, use_container_width=True)
+    #         
+    #     with col_mod2:
+    #         st.success("""
+    #         **Catatan Teknis Peneliti:**
+    #         AI ini dilatih menggunakan **keseluruhan data agregat (Mahasiswa + Dosen + Tendik)**. 
+    #         Random Forest Classifier kembali diimplementasikan sebagai inti model (Deployment) berkat kemampuannya meminimalkan *noise* data log jam terbang yang sangat bervariasi.
+    #         """)
+    #         
+    #     st.markdown("---")
+    #     st.markdown("### 🔑 Nilai Kepentingan Fitur (Feature Importance) - Model Random Forest")
+    #     importances = model_terpilih.feature_importances_
+    #     df_imp = pd.DataFrame({'Fitur': fitur_names, 'Bobot Kepentingan': importances}).sort_values(by='Bobot Kepentingan', ascending=True)
+    #     
+    #     fig_imp = px.bar(df_imp, x='Bobot Kepentingan', y='Fitur', orientation='h',
+    #                      title="Atribut yang Paling Berpengaruh dalam Penentuan Aktivitas",
+    #                      color_discrete_sequence=['#E91E63'])
+    #     st.plotly_chart(fig_imp, use_container_width=True)
 
     # ----------------------------------------
-    # TAB 3: EVALUASI MODEL
+    # TAB 4: SIMULASI PREDIKSI (DISEMBUNYIKAN)
     # ----------------------------------------
-    with tab3:
-        st.markdown("""
-        <div style="background-color:#7B1FA2;padding:20px;border-radius:10px;margin-bottom:20px">
-            <h2 style="color:white;margin:0">🤖 MENU EVALUASI DAN PERFORMA MODEL AI</h2>
-            <p style="color:#F3E5F5;margin:5px 0 0 0">Analisis Perbandingan Skor Akurasi Algoritma untuk Penggolongan Aktivitas (Semua Pengguna)</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        col_mod1, col_mod2 = st.columns([1.5, 1])
-        with col_mod1:
-            df_eval = pd.DataFrame({'Model': eval_dict['Model'], 'Accuracy': eval_dict['Accuracy']})
-            df_eval = df_eval.sort_values(by='Accuracy', ascending=True)
-            
-            fig_acc = px.bar(df_eval, x='Accuracy', y='Model', orientation='h',
-                             text=[f"{x:.2%}" for x in df_eval['Accuracy']],
-                             color='Model', color_discrete_sequence=['#FF9800', '#2196F3', '#4CAF50'],
-                             title="Tingkat Akurasi Prediksi Berdasarkan Algoritma")
-            fig_acc.update_layout(xaxis_range=[0, 1.1], showlegend=False)
-            st.plotly_chart(fig_acc, use_container_width=True)
-            
-        with col_mod2:
-            st.success("""
-            **Catatan Teknis Peneliti:**
-            AI ini dilatih menggunakan **keseluruhan data agregat (Mahasiswa + Dosen + Tendik)**. 
-            Random Forest Classifier kembali diimplementasikan sebagai inti model (Deployment) berkat kemampuannya meminimalkan *noise* data log jam terbang yang sangat bervariasi.
-            """)
-            
-        st.markdown("---")
-        st.markdown("### 🔑 Nilai Kepentingan Fitur (Feature Importance) - Model Random Forest")
-        importances = model_terpilih.feature_importances_
-        df_imp = pd.DataFrame({'Fitur': fitur_names, 'Bobot Kepentingan': importances}).sort_values(by='Bobot Kepentingan', ascending=True)
-        
-        fig_imp = px.bar(df_imp, x='Bobot Kepentingan', y='Fitur', orientation='h',
-                         title="Atribut yang Paling Berpengaruh dalam Penentuan Aktivitas",
-                         color_discrete_sequence=['#E91E63'])
-        st.plotly_chart(fig_imp, use_container_width=True)
-
-    # ----------------------------------------
-    # TAB 4: SIMULASI PREDIKSI
-    # ----------------------------------------
-    with tab4:
-        st.markdown("""
-        <div style="background-color:#D81B60;padding:20px;border-radius:10px;margin-bottom:20px">
-            <h2 style="color:white;margin:0">🚀 SIMULASI PREDIKSI AI (AKTIVITAS BULANAN)</h2>
-            <p style="color:#FCE4EC;margin:5px 0 0 0">Sistem Kecerdasan Buatan untuk Mengukur & Memprediksi Performa Kolaborasi Digital (Skala Jam)</p>
-        </div>
-        """, unsafe_allow_html=True)
-        
-        st.info("ℹ️ **Cara Kerja AI:** Masukkan estimasi beban jam kerja Anda selama sebulan. Sistem akan mengklasifikasikan kebiasaan Anda berdasarkan database ribuan sivitas akademika lainnya.")
-        
-        with st.form("form_prediksi"):
-            st.markdown("#### 📥 Form Input Data Aktivitas (Dalam Satuan JAM)")
-            col_in1, col_in2, col_in3 = st.columns(3)
-            
-            with col_in1:
-                audio_in = st.number_input("🎙️ Durasi Audio (Jam/Bulan)", min_value=0.0, value=15.0, step=1.0)
-            with col_in2:
-                video_in = st.number_input("📹 Durasi Video (Jam/Bulan)", min_value=0.0, value=10.0, step=1.0)
-            with col_in3:
-                screen_in = st.number_input("💻 Durasi Screen Share (Jam/Bulan)", min_value=0.0, value=5.0, step=1.0)
-                
-            submit_btn = st.form_submit_button("Mulai Analisis AI (Prediksi)", type="primary")
-            
-        if submit_btn:
-            total_in = audio_in + video_in + screen_in
-            data_baru = pd.DataFrame({
-                'Audio Duration (Jam)': [audio_in],
-                'Video Duration (Jam)': [video_in],
-                'Screen Share (Jam)': [screen_in],
-                'Total_Duration (Jam)': [total_in]
-            })
-            
-            data_baru_scaled = scaler.transform(data_baru)
-            pred_kode = model_terpilih.predict(data_baru_scaled)[0]
-            hasil_prediksi = inv_map[pred_kode]
-            proba = model_terpilih.predict_proba(data_baru_scaled)[0]
-            
-            st.markdown("---")
-            st.markdown("### 🔔 Hasil Prediksi AI (1 Bulan)")
-            
-            col_res1, col_res2 = st.columns([1, 2])
-            
-            with col_res1:
-                st.metric("Total Akumulasi Beban", f"{total_in} Jam")
-                if hasil_prediksi == "Rendah":
-                    st.markdown("Prediksi Aktivitas: <br><span style='color:#EF5350;font-weight:bold;font-size:28px'>RENDAH</span>", unsafe_allow_html=True)
-                elif hasil_prediksi == "Sedang":
-                    st.markdown("Prediksi Aktivitas: <br><span style='color:#FFCA28;font-weight:bold;font-size:28px'>SEDANG</span>", unsafe_allow_html=True)
-                else:
-                    st.markdown("Prediksi Aktivitas: <br><span style='color:#66BB6A;font-weight:bold;font-size:28px'>TINGGI</span>", unsafe_allow_html=True)
-                
-            with col_res2:
-                st.markdown("**📊 Tingkat Keyakinan Keputusan Model AI (*Class Probabilities*):**")
-                st.progress(float(proba[0]), text=f"Probabilitas Kelas Rendah: {proba[0]:.1%}")
-                st.progress(float(proba[1]), text=f"Probabilitas Kelas Sedang: {proba[1]:.1%}")
-                st.progress(float(proba[2]), text=f"Probabilitas Kelas Tinggi: {proba[2]:.1%}")
+    # with tab4:
+    #     st.markdown("""
+    #     <div style="background-color:#D81B60;padding:20px;border-radius:10px;margin-bottom:20px">
+    #         <h2 style="color:white;margin:0">🚀 SIMULASI PREDIKSI AI (AKTIVITAS BULANAN)</h2>
+    #         <p style="color:#FCE4EC;margin:5px 0 0 0">Sistem Kecerdasan Buatan untuk Mengukur & Memprediksi Performa Kolaborasi Digital (Skala Jam)</p>
+    #     </div>
+    #     """, unsafe_allow_html=True)
+    #     
+    #     st.info("ℹ️ **Cara Kerja AI:** Masukkan estimasi beban jam kerja Anda selama sebulan. Sistem akan mengklasifikasikan kebiasaan Anda berdasarkan database ribuan sivitas akademika lainnya.")
+    #     
+    #     with st.form("form_prediksi"):
+    #         st.markdown("#### 📥 Form Input Data Aktivitas (Dalam Satuan JAM)")
+    #         col_in1, col_in2, col_in3 = st.columns(3)
+    #         
+    #         with col_in1:
+    #             audio_in = st.number_input("🎙️ Durasi Audio (Jam/Bulan)", min_value=0.0, value=15.0, step=1.0)
+    #         with col_in2:
+    #             video_in = st.number_input("📹 Durasi Video (Jam/Bulan)", min_value=0.0, value=10.0, step=1.0)
+    #         with col_in3:
+    #             screen_in = st.number_input("💻 Durasi Screen Share (Jam/Bulan)", min_value=0.0, value=5.0, step=1.0)
+    #             
+    #         submit_btn = st.form_submit_button("Mulai Analisis AI (Prediksi)", type="primary")
+    #         
+    #     if submit_btn:
+    #         total_in = audio_in + video_in + screen_in
+    #         data_baru = pd.DataFrame({
+    #             'Audio Duration (Jam)': [audio_in],
+    #             'Video Duration (Jam)': [video_in],
+    #             'Screen Share (Jam)': [screen_in],
+    #             'Total_Duration (Jam)': [total_in]
+    #         })
+    #         
+    #         data_baru_scaled = scaler.transform(data_baru)
+    #         pred_kode = model_terpilih.predict(data_baru_scaled)[0]
+    #         hasil_prediksi = inv_map[pred_kode]
+    #         proba = model_terpilih.predict_proba(data_baru_scaled)[0]
+    #         
+    #         st.markdown("---")
+    #         st.markdown("### 🔔 Hasil Prediksi AI (1 Bulan)")
+    #         
+    #         col_res1, col_res2 = st.columns([1, 2])
+    #         
+    #         with col_res1:
+    #             st.metric("Total Akumulasi Beban", f"{total_in} Jam")
+    #             if hasil_prediksi == "Rendah":
+    #                 st.markdown("Prediksi Aktivitas: <br><span style='color:#EF5350;font-weight:bold;font-size:28px'>RENDAH</span>", unsafe_allow_html=True)
+    #             elif hasil_prediksi == "Sedang":
+    #                 st.markdown("Prediksi Aktivitas: <br><span style='color:#FFCA28;font-weight:bold;font-size:28px'>SEDANG</span>", unsafe_allow_html=True)
+    #             else:
+    #                 st.markdown("Prediksi Aktivitas: <br><span style='color:#66BB6A;font-weight:bold;font-size:28px'>TINGGI</span>", unsafe_allow_html=True)
+    #             
+    #         with col_res2:
+    #             st.markdown("**📊 Tingkat Keyakinan Keputusan Model AI (*Class Probabilities*):**")
+    #             st.progress(float(proba[0]), text=f"Probabilitas Kelas Rendah: {proba[0]:.1%}")
+    #             st.progress(float(proba[1]), text=f"Probabilitas Kelas Sedang: {proba[1]:.1%}")
+    #             st.progress(float(proba[2]), text=f"Probabilitas Kelas Tinggi: {proba[2]:.1%}")
