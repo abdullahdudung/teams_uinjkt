@@ -157,7 +157,7 @@ else:
     st.markdown("### Laporan & Prediksi Akumulasi 180 Hari | UIN Syarif Hidayatullah Jakarta")
     st.markdown("---")
     
-    # Navigasi Empat Tab Utama (DISEDERHANAKAN)
+    # Navigasi Empat Tab Utama
     tab1, tab2, tab3, tab4 = st.tabs([
         "📝 Ringkasan", 
         "📈 Exploratory Data Analysis (EDA Terpadu)", 
@@ -322,36 +322,58 @@ else:
 
         st.markdown("---")
 
-        # 4. PAPAN PERINGKAT TOP 10 UNIT KERJA (Khusus Dosen & Tendik)
-        st.markdown("### 🏢 Top 10 Unit Kerja Teraktif (Khusus Dosen & Tendik)")
+        # 4. PAPAN PERINGKAT TOP 10 UNIT KERJA (Khusus Dosen & Tendik Berdasarkan Filter df_eda)
+        st.markdown(f"### 🏢 Top 10 Unit Kerja Teraktif ({pilihan_role} - {pilihan_sub})")
         
-        # Memfilter hanya untuk Dosen dan Tendik yang memiliki kolom 'Unit Kerja' valid
-        df_unit_kerja = df_all[df_all['Role'].isin(['Dosen', 'Tendik'])].dropna(subset=['Unit Kerja'])
+        # Memfilter data aktif (df_eda) hanya untuk Dosen dan Tendik yang memiliki Unit Kerja
+        df_unit_kerja = df_eda[df_eda['Role'].isin(['Dosen', 'Tendik'])].dropna(subset=['Unit Kerja'])
         
         if not df_unit_kerja.empty:
             # Menggabungkan total aktivitas berdasarkan Unit Kerja
             unit_grp = df_unit_kerja.groupby('Unit Kerja').agg({
                 'Meeting Count': 'sum',
-                'Total_Duration (Jam)': 'sum'
+                'Audio Duration (Jam)': 'sum',
+                'Video Duration (Jam)': 'sum',
+                'Screen Share (Jam)': 'sum'
             }).reset_index()
             
-            tab_u1, tab_u2 = st.tabs(["📊 Total Frekuensi Pertemuan", "⏱️ Total Durasi Kolaborasi (Jam)"])
+            # Membuat 4 Tab yang sesuai dengan referensi
+            tab_u1, tab_u2, tab_u3, tab_u4 = st.tabs([
+                "📊 Frekuensi Rapat/Kelas", 
+                "🎙️ Audio Terlama", 
+                "📹 Video Terlama", 
+                "💻 Screen Share Terlama"
+            ])
             
             with tab_u1:
                 top_unit_meet = unit_grp.nlargest(10, 'Meeting Count').sort_values('Meeting Count', ascending=True)
                 fig_u_meet = px.bar(top_unit_meet, x='Meeting Count', y='Unit Kerja', orientation='h', 
-                                    text_auto='.0f', title="Top 10 Unit Kerja (Berdasarkan Total Rapat)", 
+                                    text_auto='.0f', title="Top 10 Unit Kerja: Frekuensi Rapat/Kelas", 
                                     color_discrete_sequence=['#1E88E5'])
                 st.plotly_chart(fig_u_meet, use_container_width=True)
                 
             with tab_u2:
-                top_unit_dur = unit_grp.nlargest(10, 'Total_Duration (Jam)').sort_values('Total_Duration (Jam)', ascending=True)
-                fig_u_dur = px.bar(top_unit_dur, x='Total_Duration (Jam)', y='Unit Kerja', orientation='h', 
-                                   text_auto='.1f', title="Top 10 Unit Kerja (Berdasarkan Total Jam Interaksi)", 
+                top_unit_aud = unit_grp.nlargest(10, 'Audio Duration (Jam)').sort_values('Audio Duration (Jam)', ascending=True)
+                fig_u_aud = px.bar(top_unit_aud, x='Audio Duration (Jam)', y='Unit Kerja', orientation='h', 
+                                   text_auto='.1f', title="Top 10 Unit Kerja: Durasi Audio Terlama", 
                                    color_discrete_sequence=['#D81B60'])
-                st.plotly_chart(fig_u_dur, use_container_width=True)
+                st.plotly_chart(fig_u_aud, use_container_width=True)
+                
+            with tab_u3:
+                top_unit_vid = unit_grp.nlargest(10, 'Video Duration (Jam)').sort_values('Video Duration (Jam)', ascending=True)
+                fig_u_vid = px.bar(top_unit_vid, x='Video Duration (Jam)', y='Unit Kerja', orientation='h', 
+                                   text_auto='.1f', title="Top 10 Unit Kerja: Durasi Video Terlama", 
+                                   color_discrete_sequence=['#FFC107'])
+                st.plotly_chart(fig_u_vid, use_container_width=True)
+                
+            with tab_u4:
+                top_unit_scr = unit_grp.nlargest(10, 'Screen Share (Jam)').sort_values('Screen Share (Jam)', ascending=True)
+                fig_u_scr = px.bar(top_unit_scr, x='Screen Share (Jam)', y='Unit Kerja', orientation='h', 
+                                   text_auto='.1f', title="Top 10 Unit Kerja: Durasi Screen Share Terlama", 
+                                   color_discrete_sequence=['#004D40'])
+                st.plotly_chart(fig_u_scr, use_container_width=True)
         else:
-            st.warning("Data metrik Unit Kerja tidak tersedia untuk kategori Dosen dan Tendik saat ini.")
+            st.warning("Data metrik Unit Kerja tidak tersedia untuk kategori filter yang dipilih saat ini (Hanya memproses Dosen & Tendik).")
 
         st.markdown("---")
         
