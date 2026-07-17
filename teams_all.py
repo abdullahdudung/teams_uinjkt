@@ -321,8 +321,41 @@ else:
             st.warning("Tidak ada data yang tersedia untuk parameter filter yang dipilih.")
 
         st.markdown("---")
+
+        # 4. PAPAN PERINGKAT TOP 10 UNIT KERJA (Khusus Dosen & Tendik)
+        st.markdown("### 🏢 Top 10 Unit Kerja Teraktif (Khusus Dosen & Tendik)")
         
-        # 4. RENDER ANALISIS LANJUTAN (Korelasi, Boxplot, 3D Scatter)
+        # Memfilter hanya untuk Dosen dan Tendik yang memiliki kolom 'Unit Kerja' valid
+        df_unit_kerja = df_all[df_all['Role'].isin(['Dosen', 'Tendik'])].dropna(subset=['Unit Kerja'])
+        
+        if not df_unit_kerja.empty:
+            # Menggabungkan total aktivitas berdasarkan Unit Kerja
+            unit_grp = df_unit_kerja.groupby('Unit Kerja').agg({
+                'Meeting Count': 'sum',
+                'Total_Duration (Jam)': 'sum'
+            }).reset_index()
+            
+            tab_u1, tab_u2 = st.tabs(["📊 Total Frekuensi Pertemuan", "⏱️ Total Durasi Kolaborasi (Jam)"])
+            
+            with tab_u1:
+                top_unit_meet = unit_grp.nlargest(10, 'Meeting Count').sort_values('Meeting Count', ascending=True)
+                fig_u_meet = px.bar(top_unit_meet, x='Meeting Count', y='Unit Kerja', orientation='h', 
+                                    text_auto='.0f', title="Top 10 Unit Kerja (Berdasarkan Total Rapat)", 
+                                    color_discrete_sequence=['#1E88E5'])
+                st.plotly_chart(fig_u_meet, use_container_width=True)
+                
+            with tab_u2:
+                top_unit_dur = unit_grp.nlargest(10, 'Total_Duration (Jam)').sort_values('Total_Duration (Jam)', ascending=True)
+                fig_u_dur = px.bar(top_unit_dur, x='Total_Duration (Jam)', y='Unit Kerja', orientation='h', 
+                                   text_auto='.1f', title="Top 10 Unit Kerja (Berdasarkan Total Jam Interaksi)", 
+                                   color_discrete_sequence=['#D81B60'])
+                st.plotly_chart(fig_u_dur, use_container_width=True)
+        else:
+            st.warning("Data metrik Unit Kerja tidak tersedia untuk kategori Dosen dan Tendik saat ini.")
+
+        st.markdown("---")
+        
+        # 5. RENDER ANALISIS LANJUTAN (Korelasi, Boxplot, 3D Scatter)
         if len(df_eda) > 0:
             render_eda_lanjutan(df_eda, f"Kategori: {pilihan_role}")
 
